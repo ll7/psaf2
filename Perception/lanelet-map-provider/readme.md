@@ -7,7 +7,7 @@ The path to the binary is then published in /psaf/LaneletMap.
 ```python
 import rospy
 import lanelet2
-from carla_custom_msgs.msg import LaneletMap
+from custom_carla_msgs.msg import LaneletMap
 
 # ...
 # subscribe to topic
