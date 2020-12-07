@@ -52,7 +52,8 @@ def main():
 
     c = ScriptedControl(role_name)
     c.run()
-
+    
 
 if __name__ == '__main__':    
     main()
+
