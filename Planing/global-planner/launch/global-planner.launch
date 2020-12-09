@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="global-planner" type="global_planner.py" name="global_planner" output="screen">
+  </node>
+
+</launch>
+
