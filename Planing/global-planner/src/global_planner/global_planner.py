@@ -30,7 +30,8 @@ class GlobalPlanner:
 
     def map_recieved(self, lanelet_msg):
         self.published_lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path)
-
+        projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
+        lanelet2.io.write("./lanelet_map.osm", self.published_lanelet_map, projection)
         self.create_global_plan(self.published_lanelet_map)
 
 
@@ -40,15 +41,18 @@ class GlobalPlanner:
         print("Creation Started")
 
         lanelets = lmap.laneletLayer
-        for elem in lanelets
+        for elem in lanelets:
             print(elem)
 
-        startLane = lmap.laneletLayer[2797] # lanelet IDs
-        endLane = lmap.laneletLayer[2938]
-        pint("Lanelets found")
+        startLane = lmap.laneletLayer[47794] # lanelet IDs
+        endLane = lmap.laneletLayer[47679]
+        print("Lanelets found")
+        rt = graph.getRoute(startLane, endLane)
         if rt is None:
             print("error: no route was calculated")
         else:
+            # debug_map = rt.getDebugLaneletMap()
+            # lanelet2.io.write("./lanelet_map_debug.osm", self.published_lanelet_map)
             sp = rt.shortestPath()
             if sp is None:
                 print ("error: no shortest path was calculated")
@@ -59,9 +63,10 @@ class GlobalPlanner:
         if sp:
             for llet in sp.getRemainingLane(startLane):
                 lmap.laneletLayer[llet.id].attributes["shortestPath"] = "True"
-            projector = lanelet2.projection.MercatorProjector(lorigin)
+            #projector = lanelet2.projection.MercatorProjector(lorigin)
+            projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
             sp_path = "./_shortestpath.osm"
-            lanelet2.io.write(sp_path, lmap, projector)
+            lanelet2.io.write(sp_path, lmap, projection)
         print("Creation Done")
 
     def calc_route_cost(self, lanelet_map, out_path):
