@@ -14,6 +14,7 @@ from opendrive2lanelet.osm.lanelet2osm import L2OSMConverter
 from carla_msgs.msg import CarlaWorldInfo
 from custom_carla_msgs.msg import LaneletMap
 from pathlib import Path
+from sensor_msgs.msg import NavSatFix
 
 
 class GlobalPlanner:
@@ -26,71 +27,45 @@ class GlobalPlanner:
     def __init__(self, role_name):
         self.role_name = role_name
         self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_recieved)
+        self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
+        self.gnss = NavSatFix()
+        self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss", NavSatFix, self.gnss_received)
+
+
+    def gnss_received(self, gnss):
+        self.gnss = gnss
+
 
 
     def map_recieved(self, lanelet_msg):
-        self.published_lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path)
-        projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
-        lanelet2.io.write("./lanelet_map.osm", self.published_lanelet_map, projection)
+        self.published_lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path, self.projection)
+        lanelet2.io.write("./lanelet_map.osm", self.published_lanelet_map, self.projection)
         self.create_global_plan(self.published_lanelet_map)
 
 
     def create_global_plan(self, lmap):
+        # Crate Routiing Graph
         trafficRules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
         graph = lanelet2.routing.RoutingGraph(lmap, trafficRules)
-        print("Creation Started")
 
-        lanelets = lmap.laneletLayer
-        for elem in lanelets:
-            print(elem)
+        # Get nearest Lanelet to start/target gps point
+        carthesian_pos = self.projection.forward(lanelet2.core.GPSPoint(self.gnss.latitude + 49, self.gnss.longitude + 8, self.gnss.altitude))
+        pstart = (carthesian_pos.x, -carthesian_pos.y)
+        start_point = lanelet2.core.BasicPoint2d(pstart[0], pstart[1])
+        target_point = lanelet2.core.BasicPoint2d(160, 185)
+        start_lanelet = lanelet2.geometry.findNearest(lmap.laneletLayer, start_point, 1)[0][1]
+        target_lanelet = lanelet2.geometry.findNearest(lmap.laneletLayer, target_point, 1)[0][1]
 
-        startLane = lmap.laneletLayer[47794] # lanelet IDs
-        endLane = lmap.laneletLayer[47679]
-        print("Lanelets found")
-        rt = graph.getRoute(startLane, endLane)
-        if rt is None:
-            print("error: no route was calculated")
-        else:
-            # debug_map = rt.getDebugLaneletMap()
-            # lanelet2.io.write("./lanelet_map_debug.osm", self.published_lanelet_map)
-            sp = rt.shortestPath()
-            if sp is None:
-                print ("error: no shortest path was calculated")
-            else:
-                print ([l.id for l in sp.getRemainingLane(startLane)])
+        # Get all possible routes
+        route = graph.getRoute(start_lanelet, target_lanelet)
+        shortest_route = route.shortestPath()
 
-        # save the path in another OSM map with a special tag to highlight it
-        if sp:
-            for llet in sp.getRemainingLane(startLane):
-                lmap.laneletLayer[llet.id].attributes["shortestPath"] = "True"
-            #projector = lanelet2.projection.MercatorProjector(lorigin)
-            projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
-            sp_path = "./_shortestpath.osm"
-            lanelet2.io.write(sp_path, lmap, projection)
-        print("Creation Done")
+        for llet in shortest_route.getRemainingLane(start_lanelet):
+            lmap.laneletLayer[llet.id].attributes["shortestPath"] = "True"
+        sp_path = "./_shortestpath.osm"
+        lanelet2.io.write(sp_path, lmap, self.projection)
+        print("_______________________________________________________________________________________________________________________________")
 
-    def calc_route_cost(self, lanelet_map, out_path):
-        self.make_positive(lanelet_map.pointLayer)
-        self.make_positive(lanelet_map.lineStringLayer)
-        self.make_positive(lanelet_map.polygonLayer)
-        self.make_positive(lanelet_map.laneletLayer)
-        self.make_positive(lanelet_map.areaLayer)
-        self.make_positive(lanelet_map.regulatoryElementLayer)
-
-        rules_map = {"vehicle": lanelet2.traffic_rules.Participants.Vehicle,
-                     "bicycle": lanelet2.traffic_rules.Participants.Bicycle,
-                     "pedestrian": lanelet2.traffic_rules.Participants.Pedestrian,
-                     "train": lanelet2.traffic_rules.Participants.Train}
-        proj = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
-
-
-        routing_cost = lanelet2.routing.RoutingCostDistance(0.)  # zero cost for lane changes
-        traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
-                                                      rules_map["vehicle"])
-        graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules, [routing_cost])
-        debug_map = graph.getDebugLaneletMap()
-
-        lanelet2.io.write(out_path, debug_map, proj)
 
     
 if __name__ == "__main__":
