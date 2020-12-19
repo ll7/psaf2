@@ -9,6 +9,7 @@ from nav_msgs.msg import Path, Odometry
 from std_msgs.msg import Float64
 
 from steering_controllers.pid_control import PIDLongitudinalController 
+from steering_controllers.stanley_control import StanleyLateralController
 
 
 
@@ -29,12 +30,14 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         """
         self._current_speed = 0.0  # Km/h
         self._current_pose = Pose()
+        self._route = Path()
         self._target_speed = target_speed
 
         if not args_longitudinal:
             args_longitudinal = {'K_P': 1.0, 'K_D': 0.0, 'K_I': 0.0}
 
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
+        self._lat_controller = StanleyLateralController()
         self._last_control_time = rospy.get_time()
 
         
@@ -61,9 +64,11 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if dt == 0.0:
             dt = 0.000001
         control = CarlaEgoVehicleControl()
-        throttle = self._lon_controller.run_step(target_speed, current_speed, dt)
+        throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
+        steering = self._lat_controller.run_step(self._current_pose, self._route, dt)
         self._last_control_time = current_time
         control.throttle = throttle
+        control.steer = steering
         control.brake = 0.0
         control.hand_brake = False
         control.manual_gear_shift = False
@@ -91,8 +96,8 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         callback on new route
         """
         rospy.loginfo("New plan with {} waypoints received.".format(len(path.poses)))
-        self._global_plan = path
-        self._route_assigned = False
+        self._route = path
+
 
     def run(self):
         """

@@ -1,38 +1,40 @@
-import os
-import sys
-import io
-import rospy
-import time
-from carla_msgs.msg import CarlaWorldInfo
-from custom_carla_msgs.msg import LaneletMap
 
+import math
+import numpy as np
+from tf.transformations import euler_from_quaternion
 
-
-class StanleyControl:
+class StanleyLateralController(object):  # pylint: disable=too-few-public-methods
     """
-    Check if the right thing was published by the lanelet_map_provider.
-    Wirtes two files in .ros: "published_test_map.osm" and "org_test_map.osm".
-    If files are the same excpet for the ids the everything worked fine.
-    You can check the results graphically in josm-editor.
+    StanleyLateralController implements longitudinal control using a PID.
     """
-    def __init__(self, role_name):
-        self.role_name = role_name
-      # self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_recieved)
-      #  self.osm_sub = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.load_opendrive)
 
-       # self.org_lanelet_map = None
-       # self.published_lanelet_map = None
+    def __init__(self):
 
+        self.k = 0.5  # control gain
+        self.Kp = 1.0  # speed proportional gain
+        #self.dt = 0.1  # [s] time difference
+        self.L = 2.9  # [m] Wheel base of vehicle
+        self.max_steer = np.deg2rad(30.0)
 
-    
-if __name__ == "__main__":
-    rospy.init_node('stanley_control', anonymous=True)
-    role_name = rospy.get_param("~role_name", "ego_vehicle")
-    
-    # idle so topic is still present
-    # (resp. if world changes)
-    try:
-        rospy.spin()
-    except rospy.ROSInterruptException:
-        pass
+    def run_step(self, currentPath, currentPose, dt):
+        # compute Ego Car Position and Yaw
+        # current_position = currentPose.position
+        # quaternion = (
+        #     currentPose.orientation.x,
+        #     currentPose.orientation.y,
+        #     currentPose.orientation.z,
+        #     currentPose.orientation.w
+        # )
+        # _, _, yaw = euler_from_quaternion(quaternion)
 
+        # idx = idxOfClosestWaypoint(currentPath, currentPose)
+
+        # # position error
+        # p_e = current_position - currentPath.poses[idx].pose.position
+
+        # _, _, yaw = euler_from_quaternion(quaternion)
+        return np.clip(1, -self.max_steer, self.max_steer)
+
+    def idxOfClosestWaypoint(self, Path, Pose):
+        #TODO
+        return 0
