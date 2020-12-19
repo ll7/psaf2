@@ -15,5 +15,11 @@ catkin_install_python(PROGRAMS src/steering_controllers/pid_control.py
 catkin_install_python(PROGRAMS src/steering_controllers/stanley_control.py
 DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
+catkin_install_python(PROGRAMS src/steering_controllers/vehicle_control.py
+DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+catkin_install_python(PROGRAMS src/steering_controllers/__init__.py
+DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
 install(DIRECTORY launch/
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)

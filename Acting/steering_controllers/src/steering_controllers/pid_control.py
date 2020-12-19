@@ -1,40 +1,42 @@
-import os
-import sys
-import io
-import rospy
-import time
-from carla_msgs.msg import CarlaWorldInfo
-from custom_carla_msgs.msg import LaneletMap
+from collections import deque
+import math
+import numpy as np
 
 
-
-class LaneletMapProviderTest:
+class PIDLongitudinalController(object):  # pylint: disable=too-few-public-methods
     """
-    Check if the right thing was published by the lanelet_map_provider.
-    Wirtes two files in .ros: "published_test_map.osm" and "org_test_map.osm".
-    If files are the same excpet for the ids the everything worked fine.
-    You can check the results graphically in josm-editor.
+    PIDLongitudinalController implements longitudinal control using a PID.
     """
-    def __init__(self, role_name):
-        self.role_name = role_name
-        self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_recieved)
-        self.osm_sub = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.load_opendrive)
 
-        self.org_lanelet_map = None
-        self.published_lanelet_map = None
+    def __init__(self, K_P=1.0, K_D=0.0, K_I=0.0):
+        """
+        :param vehicle: actor to apply to local planner logic onto
+        :param K_P: Proportional term
+        :param K_D: Differential term
+        :param K_I: Integral term
+        """
+        self._K_P = K_P
+        self._K_D = K_D
+        self._K_I = K_I
+        self._e_buffer = deque(maxlen=30)
 
+    def run_step(self, target_speed, current_speed, dt):
+        """
+        Estimate the throttle of the vehicle based on the PID equations
+        :param target_speed:  target speed in Km/h
+        :param current_speed: current speed of the vehicle in Km/h
+        :return: throttle control in the range [0, 1]
+        """
+        _e = (target_speed - current_speed)
+        self._e_buffer.append(_e)
 
-    
-if __name__ == "__main__":
-    rospy.init_node('carla_manual_control', anonymous=True)
-    role_name = rospy.get_param("~role_name", "ego_vehicle")
+        if len(self._e_buffer) >= 2:
+            _de = (self._e_buffer[-1] - self._e_buffer[-2]) / dt
+            _ie = sum(self._e_buffer) * dt
+        else:
+            _de = 0.0
+            _ie = 0.0
 
-    lmp = LaneletMapProviderTest(role_name)
-    
-    # idle so topic is still present
-    # (resp. if world changes)
-    try:
-        rospy.spin()
-    except rospy.ROSInterruptException:
-        pass
+        return np.clip((self._K_P * _e) + (self._K_D * _de / dt) + (self._K_I * _ie * dt), 0.0, 1.0)
+
 
