@@ -54,8 +54,15 @@ class LaneletMapProvider:
         projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
         lanelet_map = lanelet2.io.load(osm_out_path, projection)
         
+        self.make_positive(lanelet_map.pointLayer)
+        self.make_positive(lanelet_map.lineStringLayer)
+        self.make_positive(lanelet_map.polygonLayer)
+        self.make_positive(lanelet_map.laneletLayer)
+        self.make_positive(lanelet_map.areaLayer)
+        self.make_positive(lanelet_map.regulatoryElementLayer)
+        
         # with open(lanelet_bin_path, "w+") as binfile:
-        lanelet2.io.write(self.lanelet_msg.lanelet_bin_path , lanelet_map, projection)
+        lanelet2.io.write(self.lanelet_msg.lanelet_bin_path , lanelet_map, projection)        
                        
         # publish path to binary data
         self.lanelet_publisher.publish(self.lanelet_msg)

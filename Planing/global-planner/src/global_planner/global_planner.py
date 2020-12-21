@@ -40,12 +40,16 @@ class GlobalPlanner:
         print("Creation Started")
 
         lanelets = lmap.laneletLayer
-        for elem in lanelets
-            print(elem)
+        print(type(lanelets))
+        for elem in lanelets:
+            print(type(elem))
+            print(elem.id)
+        print(lanelets[47700])
+        startLane = lanelets[47700]
+        endLane = lanelets[47767]
 
-        startLane = lmap.laneletLayer[2797] # lanelet IDs
-        endLane = lmap.laneletLayer[2938]
-        pint("Lanelets found")
+        print("Lanelets found")
+        rt = graph.getRoute(startLane, endLane)
         if rt is None:
             print("error: no route was calculated")
         else:
@@ -59,19 +63,13 @@ class GlobalPlanner:
         if sp:
             for llet in sp.getRemainingLane(startLane):
                 lmap.laneletLayer[llet.id].attributes["shortestPath"] = "True"
-            projector = lanelet2.projection.MercatorProjector(lorigin)
+           # projector = lanelet2.projection.MercatorProjector(lorigin)
+            proj = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
             sp_path = "./_shortestpath.osm"
-            lanelet2.io.write(sp_path, lmap, projector)
+            lanelet2.io.write(sp_path, lmap, proj)
         print("Creation Done")
 
     def calc_route_cost(self, lanelet_map, out_path):
-        self.make_positive(lanelet_map.pointLayer)
-        self.make_positive(lanelet_map.lineStringLayer)
-        self.make_positive(lanelet_map.polygonLayer)
-        self.make_positive(lanelet_map.laneletLayer)
-        self.make_positive(lanelet_map.areaLayer)
-        self.make_positive(lanelet_map.regulatoryElementLayer)
-
         rules_map = {"vehicle": lanelet2.traffic_rules.Participants.Vehicle,
                      "bicycle": lanelet2.traffic_rules.Participants.Bicycle,
                      "pedestrian": lanelet2.traffic_rules.Participants.Pedestrian,
