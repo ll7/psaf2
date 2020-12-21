@@ -12,5 +12,8 @@ catkin_package(CATKIN_DEPENDS rospy)
 catkin_install_python(PROGRAMS src/global_planner/global_planner.py
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
+catkin_install_python(PROGRAMS src/global_planner/target_publisher.py
+                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
 install(DIRECTORY launch/
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)

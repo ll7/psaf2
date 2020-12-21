@@ -13,12 +13,13 @@ from opendrive2lanelet.network import Network
 from opendrive2lanelet.osm.lanelet2osm import L2OSMConverter
 from carla_msgs.msg import CarlaWorldInfo
 from custom_carla_msgs.msg import LaneletMap
-from custom_carla_msgs.msg import GlobalPath
+# from custom_carla_msgs.msg import GlobalPath
 from geometry_msgs.msg import Point
 from pathlib import Path
 from sensor_msgs.msg import NavSatFix
 from collections import deque
-
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
 
 class GlobalPlanner:
     """
@@ -32,8 +33,9 @@ class GlobalPlanner:
         self.role_name = role_name
         self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_received)
         self.target_sub = rospy.Subscriber("/psaf/target_point", NavSatFix, self.target_received)
-        self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss", NavSatFix, self.gnss_received)
-        self.path_pub = rospy.Publisher("/psaf/global_path", GlobalPath, queue=1, latch=True)
+        self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss/gnss1/fix", NavSatFix, self.gnss_received)
+        # self.path_pub = rospy.Publisher("/psaf/global_path", GlobalPath, queue_size=1, latch=True)
+        self.path_pub = rospy.Publisher("/psaf/global_path", Path, queue_size=1, latch=True)
 
         self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
         self.route = deque()
@@ -81,18 +83,29 @@ class GlobalPlanner:
         # sp_path = "./_shortestpath.osm"
         # lanelet2.io.write(sp_path, self.lanelet_map, self.projection)
 
+
+        path_msg = Path()
+        path_msg.header.frame_id = "map"
+        path_msg.header.stamp = rospy.Time.now()
         for lane in shortest_route.getRemainingLane(start_lanelet):
             for p in lane.centerline:
-                point = Point()
-                point.x = p.x
-                point.y = -p.y
-                point.z = p.z
+                # point = Point()
+                # point.x = p.x
+                # point.y = -p.y
+                # point.z = p.z
+                pose = PoseStamped()
+                pose.pose.position.x = p.x
+                pose.pose.position.y = -p.y
+                pose.pose.position.z = p.z
+                # self.route.append(point)
 
-                self.route.append(point)
+                path_msg.poses.append(pose)
 
-        path_msg = GlobalPath()
-        path_msg.path = self.route
-        print(self.route)
+        #path_msg = GlobalPath()
+        #path_msg.path = self.route
+        #print(self.route)
+
+
         self.path_pub.publish(path_msg)
 
 
