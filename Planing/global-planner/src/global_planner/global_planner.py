@@ -13,7 +13,11 @@ from opendrive2lanelet.network import Network
 from opendrive2lanelet.osm.lanelet2osm import L2OSMConverter
 from carla_msgs.msg import CarlaWorldInfo
 from custom_carla_msgs.msg import LaneletMap
+from custom_carla_msgs.msg import GlobalPath
+from geometry_msgs.msg import Point
 from pathlib import Path
+from sensor_msgs.msg import NavSatFix
+from collections import deque
 
 
 class GlobalPlanner:
@@ -23,79 +27,84 @@ class GlobalPlanner:
     If files are the same excpet for the ids the everything worked fine.
     You can check the results graphically in josm-editor.
     """
+
     def __init__(self, role_name):
         self.role_name = role_name
-        self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_recieved)
+        self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_received)
+        self.target_sub = rospy.Subscriber("/psaf/target_point", NavSatFix, self.target_received)
+        self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss", NavSatFix, self.gnss_received)
+        self.path_pub = rospy.Publisher("/psaf/global_path", GlobalPath, queue=1, latch=True)
 
+        self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
+        self.route = deque()
 
-    def map_recieved(self, lanelet_msg):
-        self.published_lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path)
+        self.lanelet_map = None
+        self.start_gnss = None
+        self.target_gnss = None
 
-        self.create_global_plan(self.published_lanelet_map)
+    def gnss_received(self, gnss):
+        self.start_gnss = gnss
 
+    def target_received(self, target_point):
+        self.target_gnss = target_point
+        while self.start_gnss is None or self.lanelet_map is None:
+            rospy.sleep(0.05)
 
-    def create_global_plan(self, lmap):
-        trafficRules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
-        graph = lanelet2.routing.RoutingGraph(lmap, trafficRules)
-        print("Creation Started")
+        self.create_global_plan()
 
-        lanelets = lmap.laneletLayer
-        print(type(lanelets))
-        for elem in lanelets:
-            print(type(elem))
-            print(elem.id)
-        print(lanelets[47700])
-        startLane = lanelets[47700]
-        endLane = lanelets[47767]
+    def map_received(self, lanelet_msg):
+        self.lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path, self.projection)
+        # lanelet2.io.write("./lanelet_map.osm", self.published_lanelet_map, self.projection)
 
-        print("Lanelets found")
-        rt = graph.getRoute(startLane, endLane)
-        if rt is None:
-            print("error: no route was calculated")
-        else:
-            sp = rt.shortestPath()
-            if sp is None:
-                print ("error: no shortest path was calculated")
-            else:
-                print ([l.id for l in sp.getRemainingLane(startLane)])
+    def find_nearest_lanelet(self, gnss_point):
+        cartesian_pos = self.projection.forward(
+            lanelet2.core.GPSPoint(gnss_point.latitude + 49, gnss_point.longitude + 8, gnss_point.altitude))
+        basic_point = lanelet2.core.BasicPoint2d(cartesian_pos.x, -cartesian_pos.y)
+        return lanelet2.geometry.findNearest(self.lanelet_map.laneletLayer, basic_point, 1)[0][1]
 
-        # save the path in another OSM map with a special tag to highlight it
-        if sp:
-            for llet in sp.getRemainingLane(startLane):
-                lmap.laneletLayer[llet.id].attributes["shortestPath"] = "True"
-           # projector = lanelet2.projection.MercatorProjector(lorigin)
-            proj = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
-            sp_path = "./_shortestpath.osm"
-            lanelet2.io.write(sp_path, lmap, proj)
-        print("Creation Done")
-
-    def calc_route_cost(self, lanelet_map, out_path):
-        rules_map = {"vehicle": lanelet2.traffic_rules.Participants.Vehicle,
-                     "bicycle": lanelet2.traffic_rules.Participants.Bicycle,
-                     "pedestrian": lanelet2.traffic_rules.Participants.Pedestrian,
-                     "train": lanelet2.traffic_rules.Participants.Train}
-        proj = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
-
-
-        routing_cost = lanelet2.routing.RoutingCostDistance(0.)  # zero cost for lane changes
+    def create_global_plan(self):
+        # Crate Routiing Graph
         traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
-                                                      rules_map["vehicle"])
-        graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules, [routing_cost])
-        debug_map = graph.getDebugLaneletMap()
+                                                      lanelet2.traffic_rules.Participants.Vehicle)
+        graph = lanelet2.routing.RoutingGraph(self.lanelet_map, traffic_rules)
 
-        lanelet2.io.write(out_path, debug_map, proj)
+        # Get nearest Lanelet to start/target gps point
+        start_lanelet = self.find_nearest_lanelet(self.start_gnss)
+        target_lanelet = self.find_nearest_lanelet(self.target_gnss)
 
-    
+        # Get all possible routes
+        route = graph.getRoute(start_lanelet, target_lanelet)
+        shortest_route = route.shortestPath()
+
+        # for llet in shortest_route.getRemainingLane(start_lanelet):
+        #     self.lanelet_map.laneletLayer[llet.id].attributes["shortestPath"] = "True"
+        # sp_path = "./_shortestpath.osm"
+        # lanelet2.io.write(sp_path, self.lanelet_map, self.projection)
+
+        for lane in shortest_route.getRemainingLane(start_lanelet):
+            for p in lane.centerline:
+                point = Point()
+                point.x = p.x
+                point.y = -p.y
+                point.z = p.z
+
+                self.route.append(point)
+
+        path_msg = GlobalPath()
+        path_msg.path = self.route
+        print(self.route)
+        self.path_pub.publish(path_msg)
+
+
 if __name__ == "__main__":
     rospy.init_node('carla_manual_control', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
 
     gp = GlobalPlanner(role_name)
-    
+
     # idle so topic is still present
     # (resp. if world changes)
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
-
