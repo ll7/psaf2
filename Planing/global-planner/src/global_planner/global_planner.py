@@ -18,8 +18,12 @@ from geometry_msgs.msg import Point
 from pathlib import Path
 from sensor_msgs.msg import NavSatFix
 from collections import deque
-from nav_msgs.msg import Path
+from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped
+from tf.transformations import euler_from_quaternion
+import numpy as np
+import math
+
 
 class GlobalPlanner:
     """
@@ -36,6 +40,7 @@ class GlobalPlanner:
         self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss/gnss1/fix", NavSatFix, self.gnss_received)
         # self.path_pub = rospy.Publisher("/psaf/global_path", GlobalPath, queue_size=1, latch=True)
         self.path_pub = rospy.Publisher("/psaf/global_path", Path, queue_size=1, latch=True)
+        self.odometry_sub = rospy.Subscriber("carla/ego_vehicle/odometry", Odometry, self.odometry_received)
 
         self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
         self.route = deque()
@@ -43,9 +48,16 @@ class GlobalPlanner:
         self.lanelet_map = None
         self.start_gnss = None
         self.target_gnss = None
+        self.odometry = None
+
+        self.position = None
+        self.target = None
 
     def gnss_received(self, gnss):
         self.start_gnss = gnss
+
+    def odometry_received(self, odometry):
+        self.odometry = odometry
 
     def target_received(self, target_point):
         self.target_gnss = target_point
@@ -62,7 +74,7 @@ class GlobalPlanner:
         cartesian_pos = self.projection.forward(
             lanelet2.core.GPSPoint(gnss_point.latitude + 49, gnss_point.longitude + 8, gnss_point.altitude))
         basic_point = lanelet2.core.BasicPoint2d(cartesian_pos.x, -cartesian_pos.y)
-        return lanelet2.geometry.findNearest(self.lanelet_map.laneletLayer, basic_point, 1)[0][1]
+        return (lanelet2.geometry.findNearest(self.lanelet_map.laneletLayer, basic_point, 1)[0][1], cartesian_pos)
 
     def create_global_plan(self):
         # Crate Routiing Graph
@@ -71,8 +83,8 @@ class GlobalPlanner:
         graph = lanelet2.routing.RoutingGraph(self.lanelet_map, traffic_rules)
 
         # Get nearest Lanelet to start/target gps point
-        start_lanelet = self.find_nearest_lanelet(self.start_gnss)
-        target_lanelet = self.find_nearest_lanelet(self.target_gnss)
+        start_lanelet, self.position = self.find_nearest_lanelet(self.start_gnss)
+        target_lanelet, self.target = self.find_nearest_lanelet(self.target_gnss)
 
         # Get all possible routes
         route = graph.getRoute(start_lanelet, target_lanelet)
@@ -84,29 +96,103 @@ class GlobalPlanner:
         # lanelet2.io.write(sp_path, self.lanelet_map, self.projection)
 
 
+
+        for lane in shortest_route.getRemainingLane(start_lanelet):
+            for p in lane.centerline:
+                point = Point()
+                point.x = p.x
+                point.y = -p.y
+                point.z = p.z
+                self.route.append(point)
+
+        print("--\n--\n--\n--\n--\n--\n--\n--\n--\n--\n--\n")
+        print(len(self.route))
+        
+        self.sanitize_route()
+
+        print(len(self.route))
+        print("--\n--\n--\n--\n--\n--\n--\n--\n--\n--\n--\n")
+
         path_msg = Path()
         path_msg.header.frame_id = "map"
         path_msg.header.stamp = rospy.Time.now()
-        for lane in shortest_route.getRemainingLane(start_lanelet):
-            for p in lane.centerline:
-                # point = Point()
-                # point.x = p.x
-                # point.y = -p.y
-                # point.z = p.z
-                pose = PoseStamped()
-                pose.pose.position.x = p.x
-                pose.pose.position.y = -p.y
-                pose.pose.position.z = p.z
-                # self.route.append(point)
-
-                path_msg.poses.append(pose)
-
-        #path_msg = GlobalPath()
-        #path_msg.path = self.route
-        #print(self.route)
-
+        for p in self.route:
+            pose = PoseStamped()
+            pose.pose.position.x = p.x
+            pose.pose.position.y = p.y
+            pose.pose.position.z = p.z
+            path_msg.poses.append(pose)
 
         self.path_pub.publish(path_msg)
+
+    def sanitize_route(self):
+        # delete unnecessary points at begin and end of route
+        max_index = -1
+        min_index = -1
+        min_distance_start = None
+        min_distance_end = None
+
+        # find last point before start position
+        for i, point in enumerate(self.route):
+            distance, _ = self.compute_magnitude_angle(point, self.position, self.odometry.pose.pose.orientation)
+            
+            if min_distance_start is not None:
+                if distance < min_distance_start:
+                    max_index = i
+                    min_distance_start = distance
+            else:
+                min_distance_start = distance
+
+        # delete points before start position
+        if max_index >= 0:
+            for i in range(max_index + 1):
+                self.route.popleft()
+
+        # # find last point after target position
+        # for i, point in enumerate(reversed(self.route)):
+        #     distance, _ = self.compute_magnitude_angle(point, self.target, self.odometry.pose.pose.orientation)
+            
+        #     if min_distance_end is not None:
+        #         if distance < min_distance_end:
+        #             min_index = i
+        #             min_distance_end = distance
+        #     else:
+        #         min_distance_end = distance
+
+        # # delete points after target position
+        # if min_index >= 0:
+        #     for i in range(min_index + 1):
+        #         self.route.pop()
+
+    def compute_magnitude_angle(self, target_location, current_location, qorientation):
+        """
+        Compute relative angle and distance between a target_location and a current_location
+        """
+        # angle of vehicle
+        quaternion = (
+            qorientation.x,
+            qorientation.y,
+            qorientation.z,
+            qorientation.w
+        )
+        _, _, yaw = euler_from_quaternion(quaternion)
+        orientation = math.degrees(-yaw)
+
+        # vector from vehicle to target point and distance
+        target_vector = np.array([target_location.x - current_location.x, target_location.y - current_location.y])
+        norm_target = np.linalg.norm(target_vector)
+
+        # vector of the car and absolut angle between vehicle and target point
+        forward_vector = np.array([math.cos(math.radians(orientation)), math.sin(math.radians(orientation))])
+        d_angle = math.degrees(math.acos(np.dot(forward_vector, target_vector) / norm_target))
+
+        # make angle negative or positive
+        cross = np.cross(forward_vector, target_vector)
+        if cross > 0:
+            d_angle *= -1.0
+
+        return (norm_target, d_angle)
+
 
 
 if __name__ == "__main__":
