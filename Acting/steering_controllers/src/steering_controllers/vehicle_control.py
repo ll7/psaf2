@@ -65,7 +65,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
             dt = 0.000001
         control = CarlaEgoVehicleControl()
         throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
-        steering = self._lat_controller.run_step(self._current_pose, self._route, dt)
+        steering = self._lat_controller.run_step(self._current_pose, self._route, self._current_speed, dt)
         self._last_control_time = current_time
         control.throttle = throttle
         control.steer = steering
@@ -74,6 +74,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         control.manual_gear_shift = False
 
         return control
+
 
     def odometry_updated(self, odo):
         """
