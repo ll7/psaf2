@@ -42,7 +42,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         
         self._route_subscriber = rospy.Subscriber(
-            "/carla/{}/waypoints".format(role_name), Path, self.path_updated)
+            "/psaf/global_path".format(role_name), Path, self.path_updated)
 
         self._target_speed_subscriber = rospy.Subscriber(
             "/carla/{}/target_speed".format(role_name), Float64, self.target_speed_updated)
@@ -65,7 +65,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
             dt = 0.000001
         control = CarlaEgoVehicleControl()
         throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
-        steering = self._lat_controller.run_step(self._current_pose, self._route, dt)
+        steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed, dt)
         self._last_control_time = current_time
         control.throttle = throttle
         control.steer = steering
@@ -74,6 +74,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         control.manual_gear_shift = False
 
         return control
+
 
     def odometry_updated(self, odo):
         """
