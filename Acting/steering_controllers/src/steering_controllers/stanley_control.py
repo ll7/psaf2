@@ -47,7 +47,7 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
 
     def calc_path_yaw(self, Path, idx):
         # computes yaw of the path at index idx
-        if idx >= Path.poses.length - 1:
+        if idx >= len(Path.poses) - 1:
             return 0
         point_current = Path.poses[idx].pose.position
         point_next = Path.poses[idx+1].pose.position
@@ -56,7 +56,7 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
 
 
 
-    def calc_target_index(self, currentPose, currentPath):
+    def calc_target_index(self, currentPath, currentPose):
         """
         Compute index in the trajectory list of the target.
         :param state: (State object)
