@@ -51,6 +51,7 @@
 
   <include file="$(find lanelet-map-provider)/launch/lanelet-map-provider.launch">  </include>
   
-    <include file="$(find global-planner)/launch/global-planner.launch">  </include>
+  <include file="$(find global-planner)/launch/global-planner.launch">  </include>
+  <include file="$(find global-planner)/launch/global-planner-target-publisher.launch">  </include>
 
 </launch>

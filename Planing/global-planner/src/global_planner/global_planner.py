@@ -14,7 +14,7 @@ from opendrive2lanelet.osm.lanelet2osm import L2OSMConverter
 from carla_msgs.msg import CarlaWorldInfo
 from custom_carla_msgs.msg import LaneletMap
 # from custom_carla_msgs.msg import GlobalPath
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, PoseWithCovarianceStamped
 from pathlib import Path
 from sensor_msgs.msg import NavSatFix
 from collections import deque
@@ -35,12 +35,6 @@ class GlobalPlanner:
 
     def __init__(self, role_name):
         self.role_name = role_name
-        self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_received)
-        self.target_sub = rospy.Subscriber("/psaf/target_point", NavSatFix, self.target_received)
-        self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss/gnss1/fix", NavSatFix, self.gnss_received)
-        # self.path_pub = rospy.Publisher("/psaf/global_path", GlobalPath, queue_size=1, latch=True)
-        self.path_pub = rospy.Publisher("/psaf/global_path", Path, queue_size=1, latch=True)
-        self.odometry_sub = rospy.Subscriber("carla/ego_vehicle/odometry", Odometry, self.odometry_received)
 
         self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
         self.route = deque()
@@ -53,6 +47,26 @@ class GlobalPlanner:
         self.position = None
         self.target = None
 
+        self.graph = None
+
+
+        self.lanelet_sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.map_received)
+        self.target_sub = rospy.Subscriber("/psaf/target_point", NavSatFix, self.target_received)
+        # self.path_pub = rospy.Publisher("/psaf/global_path", GlobalPath, queue_size=1, latch=True)
+        self.gnss_subscriber = rospy.Subscriber("/carla/ego_vehicle/gnss", NavSatFix, self.gnss_received)
+        self.path_pub = rospy.Publisher("/psaf/global_path", Path, queue_size=1, latch=True)
+        self.odometry_sub = rospy.Subscriber("carla/ego_vehicle/odometry", Odometry, self.odometry_received)
+        self.inital_pose_sub = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
+
+
+
+    def init_pose_received(self, pose):
+        print("New Start")
+        while self.start_gnss is None or self.lanelet_map is None or self.odometry is None:
+            rospy.sleep(0.05)
+
+        self.create_global_plan()
+
     def gnss_received(self, gnss):
         self.start_gnss = gnss
 
@@ -60,8 +74,9 @@ class GlobalPlanner:
         self.odometry = odometry
 
     def target_received(self, target_point):
+        print("Target Received")
         self.target_gnss = target_point
-        while self.start_gnss is None or self.lanelet_map is None:
+        while self.start_gnss is None or self.lanelet_map is None or self.odometry is None:
             rospy.sleep(0.05)
 
         self.create_global_plan()
@@ -77,17 +92,19 @@ class GlobalPlanner:
         return (lanelet2.geometry.findNearest(self.lanelet_map.laneletLayer, basic_point, 1)[0][1], cartesian_pos)
 
     def create_global_plan(self):
+        print("Plan Creation Stated!")
         # Crate Routiing Graph
         traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
                                                       lanelet2.traffic_rules.Participants.Vehicle)
-        graph = lanelet2.routing.RoutingGraph(self.lanelet_map, traffic_rules)
-
-        # Get nearest Lanelet to start/target gps point
+        if self.graph is None:
+            self.graph = lanelet2.routing.RoutingGraph(self.lanelet_map, traffic_rules)
+        
         start_lanelet, self.position = self.find_nearest_lanelet(self.start_gnss)
+        # Get nearest Lanelet to start/target gps point
         target_lanelet, self.target = self.find_nearest_lanelet(self.target_gnss)
 
         # Get all possible routes
-        route = graph.getRoute(start_lanelet, target_lanelet)
+        route = self.graph.getRoute(start_lanelet, target_lanelet)
         shortest_route = route.shortestPath()
 
         # for llet in shortest_route.getRemainingLane(start_lanelet):
