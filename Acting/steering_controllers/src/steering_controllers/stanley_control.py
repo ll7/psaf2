@@ -6,6 +6,8 @@ from geometry_msgs.msg import Point, Pose, PoseStamped
 from nav_msgs.msg import Path
 from tf.transformations import euler_from_quaternion
 
+from steering_controllers.helpers import calc_egocar_yaw, normalize_angle, calc_path_yaw
+
 class StanleyLateralController(object):  # pylint: disable=too-few-public-methods
     """
     StanleyLateralController implements longitudinal control using a PID.
@@ -22,7 +24,7 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
     def run_step(self, currentPath, currentPose, currentSpeed):
         current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
         # theta_e corrects the heading error
-        theta_e = self.normalize_angle(self.calc_path_yaw(currentPath, current_target_idx) - self.calc_egocar_yaw(currentPose))
+        theta_e = normalize_angle(calc_path_yaw(currentPath, current_target_idx) - calc_egocar_yaw(currentPose))
         # theta_d corrects the cross track error
         theta_d = np.arctan2(self.k * error_front_axle, currentSpeed)
         # Steering control      
@@ -30,28 +32,6 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         #if len(currentPath.poses) != 0:
         #    self.targetpointpublisher.publish(currentPath.poses[current_target_idx])
         return np.clip(delta, -self.max_steer, self.max_steer)
-
-    def calc_egocar_yaw(self, currentPose):
-        # compute Ego Car Yaw
-        quaternion = (
-            currentPose.orientation.x,
-            currentPose.orientation.y,
-            currentPose.orientation.z,
-            currentPose.orientation.w
-        )
-        _, _, yaw = euler_from_quaternion(quaternion)
-        return self.normalize_angle(yaw)
-
-    def calc_path_yaw(self, Path, idx):
-        # computes yaw of the path at index idx
-        if idx >= len(Path.poses) - 1:
-            return 0
-        point_current = Path.poses[idx].pose.position
-        point_next = Path.poses[idx+1].pose.position
-        angle = math.atan2(point_next.y - point_current.y, point_next.x - point_current.x)
-        return self.normalize_angle(angle)
-
-
 
     def calc_target_index(self, currentPath, currentPose):
         """
@@ -62,7 +42,7 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
             return 0, 0
         
         # Calc front axle position
-        yaw = self.calc_egocar_yaw(currentPose)
+        yaw = calc_egocar_yaw(currentPose)
         fx = currentPose.position.x + self.L * np.cos(yaw)
         fy = currentPose.position.y + self.L * np.sin(yaw)
 
@@ -81,19 +61,6 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
 
         return target_idx, error_front_axle
     
-    def normalize_angle(self, angle):
-        """
-        Normalize an angle to [-pi, pi].
-        :param angle: (float)
-        :return: (float) Angle in radian in [-pi, pi]
-        """
-        while angle > np.pi:
-            angle -= 2.0 * np.pi
-
-        while angle < -np.pi:
-            angle += 2.0 * np.pi
-
-        return angle
 
 
 
