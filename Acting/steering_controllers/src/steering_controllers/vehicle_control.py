@@ -22,11 +22,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
     def __init__(self, role_name, target_speed, args_longitudinal=None):
         """
-        :param args_longitudinal: dictionary of arguments to set the longitudinal PID
-                                  controller using the following semantics:
-                             K_P -- Proportional term
-                             K_D -- Differential term
-                             K_I -- Integral term
+
         """
         self._current_speed = 0.0  # Km/h
         self._current_pose = Pose()
@@ -36,7 +32,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if not args_longitudinal:
             args_longitudinal = {'K_P': 1.0, 'K_D': 0.0, 'K_I': 0.0}
         if not args_lateral:
-            args_lateral = {'k': 1.0, 'Kp': 0.0, 'L': 0.0, 'max_steer':30.0}
+            args_lateral = {'k': 0.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0}
 
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
         self._lat_controller = StanleyLateralController(**args_lateral)
@@ -67,7 +63,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
             dt = 0.000001
         control = CarlaEgoVehicleControl()
         throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
-        steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed, dt)
+        steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
         self._last_control_time = current_time
         control.throttle = throttle
         control.steer = steering
