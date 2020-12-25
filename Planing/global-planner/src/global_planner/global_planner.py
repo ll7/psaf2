@@ -135,6 +135,8 @@ class GlobalPlanner:
         path_msg.header.stamp = rospy.Time.now()
         for p in self.route:
             pose = PoseStamped()
+            pose.header.frame_id = "map"
+            pose.header.stamp = rospy.Time.now()
             pose.pose.position.x = p.x
             pose.pose.position.y = p.y
             pose.pose.position.z = p.z
