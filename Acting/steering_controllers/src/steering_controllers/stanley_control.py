@@ -10,20 +10,14 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
     StanleyLateralController implements longitudinal control using a PID.
     """
 
-    def __init__(self):
+    def __init__(self, k=.5, Kp=1.0, L=2.9, max_steer=30.0):
 
-        self.k = 0.5  # control gain
-        self.Kp = 1.0  # speed proportional gain
-        #self.dt = 0.1  # [s] time difference
-        self.L = 2.9  # [m] Wheel base of vehicle
-        self.max_steer = np.deg2rad(30.0)
+        self.k = k  # control gain
+        self.Kp = Kp  # speed proportional gain
+        self.L = L  # [m] Wheel base of vehicle
+        self.max_steer = np.deg2rad(max_steer)
 
-    def run_step(self, currentPath, currentPose, currentSpeed, dt):
-        delta, current_target_idx = self.stanley_control(currentPath, currentPose, currentSpeed)
-
-        return np.clip(delta, -self.max_steer, self.max_steer)
-
-    def stanley_control(self, currentPath, currentPose, currentSpeed):
+    def run_step(self, currentPath, currentPose, currentSpeed):
         current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
         # theta_e corrects the heading error
         theta_e = self.normalize_angle(self.calc_path_yaw(currentPath, current_target_idx) - self.calc_egocar_yaw(currentPose))
@@ -32,7 +26,7 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         # Steering control      
         delta = theta_e + theta_d
 
-        return delta, current_target_idx
+        return np.clip(delta, -self.max_steer, self.max_steer)
 
     def calc_egocar_yaw(self, currentPose):
         # compute Ego Car Yaw

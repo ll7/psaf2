@@ -35,9 +35,11 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         if not args_longitudinal:
             args_longitudinal = {'K_P': 1.0, 'K_D': 0.0, 'K_I': 0.0}
+        if not args_lateral:
+            args_lateral = {'k': 1.0, 'Kp': 0.0, 'L': 0.0, 'max_steer':30.0}
 
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
-        self._lat_controller = StanleyLateralController()
+        self._lat_controller = StanleyLateralController(**args_lateral)
         self._last_control_time = rospy.get_time()
 
         
