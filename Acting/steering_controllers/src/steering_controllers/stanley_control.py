@@ -53,10 +53,6 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
     def calc_target_index(self, currentPath, currentPose):
         """
         Compute index in the trajectory list of the target.
-        :param state: (State object)
-        :param cx: [float]
-        :param cy: [float]
-        :return: (int, float)
         """
 
         if len(currentPath.poses) == 0:
@@ -64,7 +60,6 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         
         # Calc front axle position
         yaw = self.calc_egocar_yaw(currentPose)
-
         fx = currentPose.position.x + self.L * np.cos(yaw)
         fy = currentPose.position.y + self.L * np.sin(yaw)
 
