@@ -1,7 +1,8 @@
 
 import math
+import rospy
 import numpy as np
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Pose, PoseStamped
 from nav_msgs.msg import Path
 from tf.transformations import euler_from_quaternion
 
@@ -16,6 +17,7 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         self.Kp = Kp  # speed proportional gain
         self.L = L  # [m] Wheel base of vehicle
         self.max_steer = np.deg2rad(max_steer)
+        #self.targetpointpublisher = rospy.Publisher("/debug/stanley/targetpoint", PoseStamped, queue_size=1)
 
     def run_step(self, currentPath, currentPose, currentSpeed):
         current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
@@ -25,7 +27,8 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         theta_d = np.arctan2(self.k * error_front_axle, currentSpeed)
         # Steering control      
         delta = theta_e + theta_d
-
+        #if len(currentPath.poses) != 0:
+        #    self.targetpointpublisher.publish(currentPath.poses[current_target_idx])
         return np.clip(delta, -self.max_steer, self.max_steer)
 
     def calc_egocar_yaw(self, currentPose):

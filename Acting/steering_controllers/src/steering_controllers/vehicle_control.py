@@ -20,7 +20,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
     to perform the low level control a vehicle from client side
     """
 
-    def __init__(self, role_name, target_speed, args_longitudinal=None):
+    def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
         """
 
         """
