@@ -6,7 +6,7 @@ from geometry_msgs.msg import Point, Pose, PoseStamped
 from nav_msgs.msg import Path
 from tf.transformations import euler_from_quaternion
 
-from steering_controllers.helpers import calc_egocar_yaw, normalize_angle, calc_path_yaw
+from helper_functions import calc_egocar_yaw, normalize_angle, calc_path_yaw
 
 class StanleyLateralController(object):  # pylint: disable=too-few-public-methods
     """
