@@ -3,6 +3,7 @@ This package launches carla-ros-bridge and spawns an ego vehicle.
 
 ## How do i add my package?
 Just add your package to the corresponding section of launch/ego_vehicle.launch
+
 For example:
 
 ```xml
