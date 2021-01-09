@@ -38,10 +38,19 @@
   </include>
 
   <!-- Add Launchfiles here -->
-  <include file="$(find steering_controllers)/launch/vehicle_control.launch">  </include>
-
+  
+  <!-- Perception-->
   <include file="$(find lanelet-map-provider)/launch/lanelet-map-provider.launch">  </include>
-  <include file="$(find global-planner)/launch/global-planner.launch">  </include>
+  
+  <!-- Planning -->
+  <include file="$(find global-planner)/launch/global-planner.launch">  </include>  
   <include file="$(find global-planner)/launch/global-planner-target-publisher.launch">  </include>
+
+  <!-- Acting-->
+  <include file="$(find steering_controllers)/launch/vehicle_control.launch">  </include>
+  
+
+
+  
 
 </launch>
