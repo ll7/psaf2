@@ -6,7 +6,7 @@ from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Point, Pose
 from carla_msgs.msg import CarlaEgoVehicleControl
 from nav_msgs.msg import Path, Odometry
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Float32
 
 from steering_controllers.pid_control import PIDLongitudinalController 
 from steering_controllers.stanley_control import StanleyLateralController
@@ -21,9 +21,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
     """
 
     def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
-        """
 
-        """
         self._current_speed = 0.0  # Km/h
         self._current_pose = Pose()
         self._route = Path()
@@ -47,6 +45,9 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         
         self._odometry_subscriber = rospy.Subscriber(
             "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
+
+        self._odometry_subscriber = rospy.Subscriber(
+            "/carla/{}/speedometer".format(role_name), Float32, self.speed_updated)
 
         self.vehicle_control_publisher = rospy.Publisher(
             "/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
@@ -76,12 +77,17 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
     def odometry_updated(self, odo):
         """
-        callback on new odometry
+        callback on new odometry data
         """
-        self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
-                                        odo.twist.twist.linear.y ** 2 +
-                                        odo.twist.twist.linear.z ** 2) * 3.6
+
         self._current_pose = odo.pose.pose
+    
+    def speed_updated(self, speed):
+        """
+        callback on new spped
+        converts from m/s to km/h
+        """
+        self._current_speed = speed.data*3.6
 
     def target_speed_updated(self, target_speed):
         """
