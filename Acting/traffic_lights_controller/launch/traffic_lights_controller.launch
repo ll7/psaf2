@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="traffic_lights_controller" type="traffic_lights_controller.py" name="traffic_lights_controller" output="screen">
+  </node>
+
+</launch>
+
