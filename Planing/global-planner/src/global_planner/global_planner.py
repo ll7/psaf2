@@ -93,7 +93,7 @@ class GlobalPlanner:
 
     def create_global_plan(self):
         print("Plan Creation Stated!")
-
+        
         if self.graph is None:
             # Crate Routiing Graph
             traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
@@ -102,7 +102,6 @@ class GlobalPlanner:
             
             # self.debug_graph = self.graph.getDebugLaneletMap()
             # lanelet2.io.write("./debug_lanlet2_map.osm", self.debug_graph)
-           
         
         start_lanelet, self.position = self.find_nearest_lanelet(self.start_gnss)
         # Get nearest Lanelet to start/target gps point
