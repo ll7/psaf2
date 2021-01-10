@@ -36,7 +36,7 @@ class GlobalPlanner:
     def __init__(self, role_name):
         self.role_name = role_name
 
-        self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(49, 8))
+        self.projection = lanelet2.projection.UtmProjector(lanelet2.io.Origin(0, 0))
         self.route = deque()
 
         self.lanelet_map = None
@@ -76,10 +76,10 @@ class GlobalPlanner:
     def target_received(self, target_point):
         print("Target Received")
         self.target_gnss = target_point
-        while self.start_gnss is None or self.lanelet_map is None or self.odometry is None:
-            rospy.sleep(0.05)
+        #while self.start_gnss is None or self.lanelet_map is None or self.odometry is None:
+        #    rospy.sleep(0.05)
 
-        self.create_global_plan()
+        #self.create_global_plan()
 
     def map_received(self, lanelet_msg):
         self.lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path, self.projection)
@@ -87,24 +87,28 @@ class GlobalPlanner:
 
     def find_nearest_lanelet(self, gnss_point):
         cartesian_pos = self.projection.forward(
-            lanelet2.core.GPSPoint(gnss_point.latitude + 49, gnss_point.longitude + 8, gnss_point.altitude))
-        basic_point = lanelet2.core.BasicPoint2d(cartesian_pos.x, -cartesian_pos.y)
+            lanelet2.core.GPSPoint(gnss_point.latitude, gnss_point.longitude, gnss_point.altitude))
+        basic_point = lanelet2.core.BasicPoint2d(cartesian_pos.x, cartesian_pos.y)
         return (lanelet2.geometry.findNearest(self.lanelet_map.laneletLayer, basic_point, 1)[0][1], cartesian_pos)
 
     def create_global_plan(self):
         print("Plan Creation Stated!")
-        # Crate Routiing Graph
-        traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
-                                                      lanelet2.traffic_rules.Participants.Vehicle)
+        
         if self.graph is None:
-            self.graph = lanelet2.routing.RoutingGraph(self.lanelet_map, traffic_rules)
+            # Crate Routiing Graph
+            traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
+            routing_cost = lanelet2.routing.RoutingCostDistance(0.)
+            self.graph = lanelet2.routing.RoutingGraph(self.lanelet_map, traffic_rules, [routing_cost])
+            
+            # self.debug_graph = self.graph.getDebugLaneletMap()
+            # lanelet2.io.write("./debug_lanlet2_map.osm", self.debug_graph)
         
         start_lanelet, self.position = self.find_nearest_lanelet(self.start_gnss)
         # Get nearest Lanelet to start/target gps point
         target_lanelet, self.target = self.find_nearest_lanelet(self.target_gnss)
 
         # Get all possible routes
-        route = self.graph.getRoute(start_lanelet, target_lanelet)
+        route = self.graph.getRoute(start_lanelet, target_lanelet, 0, True)
         shortest_route = route.shortestPath()
 
         # for llet in shortest_route.getRemainingLane(start_lanelet):
@@ -118,7 +122,7 @@ class GlobalPlanner:
             for p in lane.centerline:
                 point = Point()
                 point.x = p.x
-                point.y = -p.y
+                point.y = p.y
                 point.z = p.z
                 self.route.append(point)
 
