@@ -1,4 +1,4 @@
-Reads traffic light status (erkennt eine rote Ampel, die sich im Begrenzungsrahmen des Autos befindet)
+Reads traffic light status
 
 Publishes on red traffic light "brake: 1.0"
 
