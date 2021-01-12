@@ -1,5 +1,5 @@
 
-from carla_msgs.msg import CarlaTrafficLightInfo, CarlaTrafficLightStatusList, CarlaEgoVehicleControl
+from carla_msgs.msg import CarlaTrafficLightInfo, CarlaTrafficLightStatus, CarlaTrafficLightStatusList, CarlaEgoVehicleControl
 #from carla_ros_bridge.actor import Actor
 import carla
 import rospy
@@ -12,36 +12,44 @@ class TrafficLightsControl():
         self.world = world
 
         self.vehicle_brake_publisher = rospy.Publisher(
-            "/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
+            "/carla/{}/vehicle_brake_state".format(role_name), CarlaEgoVehicleControl, queue_size=1)
+            #"/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
+        #self.activ_traffic_light_publisher = rospy.Publisher(
+             #"/carla/{}/activ_traffic_light".format(role_name), CarlaEgoVehicleControl, queue_size=1)
 
     def run(self):
             """
             Look for an carla actor with name 'ego_vehicle' 
             Changes status on red traffic light
             """
-            status = CarlaEgoVehicleControl()
+
+            #t_status = CarlaTrafficLightStatus() #
+            #t_status.id = 0
+            #self.activ_traffic_light_publisher.publish(t_status)
+
+            v_status = CarlaEgoVehicleControl()
             #rospy.loginfo("Waiting for ego vehicle...")
             for actor in self.world.get_actors():
                 if actor.attributes.get('role_name') == self.role_name:
                     self.ego_vehicle = actor
                     rospy.loginfo("Ego vehicle found.")
-                    status.brake = 0.0
-                    rospy.loginfo("Init brake_status: {}".format(status.brake))
+                    v_status.brake = 0.0
+                    rospy.loginfo("Init brake_status: {}".format(v_status.brake))
                     break
             while True:
             #Get the traffic light affecting a vehicle
                 while self.ego_vehicle.is_at_traffic_light() == True:
                     traffic_light = self.ego_vehicle.get_traffic_light()
                     if (traffic_light.get_state() == carla.TrafficLightState.Red): #or (traffic_light.get_state() == carla.TrafficLightState.Yellow):
-                       status.brake = 1.0 
-                       rospy.loginfo("NEW Brake_Status: {}".format(status.brake))
-                       self.vehicle_brake_publisher.publish(status)
+                       v_status.brake = 1.0 
+                       rospy.loginfo("NEW Brake_Status: {}".format(v_status.brake))
+                       self.vehicle_brake_publisher.publish(v_status)
                     else:
-                        status.brake = 0.0
-                        self.vehicle_brake_publisher.publish(status)
-                status.brake = 0.0  
-                rospy.loginfo("Braske_Status: {}".format(status.brake))
-                self.vehicle_brake_publisher.publish(status)
+                        v_status.brake = 0.0
+                        self.vehicle_brake_publisher.publish(v_status)
+                v_status.brake = 0.0  
+                rospy.loginfo("Braske_Status: {}".format(v_status.brake))
+                self.vehicle_brake_publisher.publish(v_status)
 
                 
                 

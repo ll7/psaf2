@@ -1,9 +1,7 @@
 from carla_msgs.msg import CarlaEgoVehicleControl
 from std_msgs.msg import Bool
-from geometry_msgs.msg import Point
 from time import sleep
 import rospy
-from helper_functions import distance_between_points
 
 
 class ScriptedControl:
@@ -38,15 +36,6 @@ class ScriptedControl:
         #     rospy.logwarn("Could not send vehicle control: {}".format(error))
         #
         # sleep(3)
-        point1 = Point()
-        point1.x = 1
-        point1.y = 1
-        point1.z = 1
-        point2 = Point()
-        point2.x = 2
-        point2.y = 2
-        point2.z = 2
-        print("distance between point1 & point2  = {} in ackermann".format(distance_between_points(point1, point2)))        
         self.vehicle_control_manual_override_publisher.publish((Bool(data=True)))
         while True:
             sleep(0.2)

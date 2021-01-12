@@ -12,6 +12,7 @@ add_message_files(
   DIRECTORY msg
   FILES
   LaneletMap.msg
+  GlobalPath.msg
 )
 
 generate_messages(

@@ -1,48 +1,76 @@
 
 import math
-import rospy
 import numpy as np
-from geometry_msgs.msg import Point, Pose, PoseStamped
+from geometry_msgs.msg import Point
 from nav_msgs.msg import Path
 from tf.transformations import euler_from_quaternion
-
-from helper_functions import calc_egocar_yaw, normalize_angle, calc_path_yaw
 
 class StanleyLateralController(object):  # pylint: disable=too-few-public-methods
     """
     StanleyLateralController implements longitudinal control using a PID.
     """
 
-    def __init__(self, k=.5, Kp=1.0, L=2.9, max_steer=30.0):
+    def __init__(self):
 
-        self.k = k  # control gain
-        self.Kp = Kp  # speed proportional gain
-        self.L = L  # [m] Wheel base of vehicle
-        self.max_steer = np.deg2rad(max_steer)
-        #self.targetpointpublisher = rospy.Publisher("/debug/stanley/targetpoint", PoseStamped, queue_size=1)
+        self.k = 0.5  # control gain
+        self.Kp = 1.0  # speed proportional gain
+        #self.dt = 0.1  # [s] time difference
+        self.L = 2.9  # [m] Wheel base of vehicle
+        self.max_steer = np.deg2rad(30.0)
 
-    def run_step(self, currentPath, currentPose, currentSpeed):
+    def run_step(self, currentPath, currentPose, currentSpeed, dt):
+        delta, current_target_idx = self.stanley_control(currentPath, currentPose, currentSpeed)
+
+        return np.clip(delta, -self.max_steer, self.max_steer)
+
+    def stanley_control(self, currentPath, currentPose, currentSpeed):
         current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
         # theta_e corrects the heading error
-        theta_e = normalize_angle(calc_path_yaw(currentPath, current_target_idx) - calc_egocar_yaw(currentPose))
+        theta_e = self.normalize_angle(self.calc_path_yaw(currentPath, current_target_idx) - self.calc_egocar_yaw(currentPose))
         # theta_d corrects the cross track error
         theta_d = np.arctan2(self.k * error_front_axle, currentSpeed)
         # Steering control      
         delta = theta_e + theta_d
-        #if len(currentPath.poses) != 0:
-        #    self.targetpointpublisher.publish(currentPath.poses[current_target_idx])
-        return np.clip(delta, -self.max_steer, self.max_steer)
+
+        return delta, current_target_idx
+
+    def calc_egocar_yaw(self, currentPose):
+        # compute Ego Car Yaw
+        quaternion = (
+            currentPose.orientation.x,
+            currentPose.orientation.y,
+            currentPose.orientation.z,
+            currentPose.orientation.w
+        )
+        _, _, yaw = euler_from_quaternion(quaternion)
+        return self.normalize_angle(yaw)
+
+    def calc_path_yaw(self, Path, idx):
+        # computes yaw of the path at index idx
+        if idx >= len(Path.poses) - 1:
+            return 0
+        point_current = Path.poses[idx].pose.position
+        point_next = Path.poses[idx+1].pose.position
+        angle = math.atan2(point_next.y - point_current.y, point_next.x - point_current.x)
+        return self.normalize_angle(angle)
+
+
 
     def calc_target_index(self, currentPath, currentPose):
         """
         Compute index in the trajectory list of the target.
+        :param state: (State object)
+        :param cx: [float]
+        :param cy: [float]
+        :return: (int, float)
         """
 
         if len(currentPath.poses) == 0:
             return 0, 0
         
         # Calc front axle position
-        yaw = calc_egocar_yaw(currentPose)
+        yaw = self.calc_egocar_yaw(currentPose)
+
         fx = currentPose.position.x + self.L * np.cos(yaw)
         fy = currentPose.position.y + self.L * np.sin(yaw)
 
@@ -61,6 +89,19 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
 
         return target_idx, error_front_axle
     
+    def normalize_angle(self, angle):
+        """
+        Normalize an angle to [-pi, pi].
+        :param angle: (float)
+        :return: (float) Angle in radian in [-pi, pi]
+        """
+        while angle > np.pi:
+            angle -= 2.0 * np.pi
+
+        while angle < -np.pi:
+            angle += 2.0 * np.pi
+
+        return angle
 
 
 
