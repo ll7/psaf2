@@ -21,6 +21,11 @@ For example:
   <include file="$(find steering_controllers)/launch/vehicle_control.launch">  </include>
 ...
 ```
+## How do change the ego car configuration?
+just edit
+```
+config/objects.json
+```
 
 
 ## How to launch this node?
