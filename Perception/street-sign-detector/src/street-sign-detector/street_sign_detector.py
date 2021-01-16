@@ -115,9 +115,18 @@ class StreetSignDetector:
             print(e)
 
     def check_for_street_signs(self):
-        cv2.imwrite('/home/mauriziovolanti/carla-ros-bridge/psaf2/Perception/street-sign-detector/src/img/sem_seg.png', self.semantic_segmentation_img)
-        cv2.imwrite('/home/mauriziovolanti/carla-ros-bridge/psaf2/Perception/street-sign-detector/src/img/rgb.png', self.semantic_segmentation_img)
-        rospy.loginfo("loop")
+        height, width, channels = self.semantic_segmentation_img.shape
+
+        filename_counter = 0
+
+        for h in range(height):
+            for w in range(width):
+                if self.semantic_segmentation_img[h, w, 0] == 0 and self.semantic_segmentation_img[h, w, 1] == 220 and self.semantic_segmentation_img[h, w, 2] == 220:
+                    self.semantic_segmentation_img[h, w, 0] = 255
+                    self.semantic_segmentation_img[h, w, 1] = 255
+                    self.semantic_segmentation_img[h, w, 2] = 255
+                    self.semantic_segmentation_img = self.get_block_by_pixel(self.semantic_segmentation_img, h, w, height, width, str(filename_counter))
+                    filename_counter += 1
 
     def run(self):
         """
