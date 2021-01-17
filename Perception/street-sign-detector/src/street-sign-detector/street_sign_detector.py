@@ -6,11 +6,13 @@ import rospy
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import cv2
+import pathlib
 
 
 class StreetSignDetector:
     """
-    Class to subscribe /carla/WorldInfo topic and create /psaf/LaneletMap topic.
+    Class to use /carla/<role_name>/semantic_segmentation_front/image and /carla/<role_name>/rgb_front/image topic
+    to detect street signs and publish them to /psaf/StreetSign topic.
     """
 
     def __init__(self, role_name):
@@ -24,15 +26,18 @@ class StreetSignDetector:
             "/carla/{}/rgb_front/image".format(role_name), Image, self.rgb_image_updated)
 
         self._control = CarlaEgoVehicleControl()
-        self.rgb_img = np.zeros((500, 500, 3), np.uint8)
-        self.semantic_segmentation_img = np.zeros((500, 500, 3), np.uint8)
+        self.rgb_img = np.zeros((600, 800, 3), np.uint8)
+        self.semantic_segmentation_img = np.zeros((300, 400, 3), np.uint8)
+        # FOR DEBUG ONLY
+        self.global_filename_counter = 0
 
-    def get_block_by_pixel(self, img_sem_seg, h_current, w_current, height, width, filename):
+    def get_block_by_pixel(self, img_rgb, img_sem, h_current, w_current, height, width, filename):
         '''
         Finds the street sign in the image of the segmentation camera which includes the pixel at position (h_current,
         w_current), cuts the shape out of the rgb camera image and saves the street sign in a file.
 
-        :param img_sem_seg: current image of the semantic segmentation camera
+        :param img_rgb: current image of the rgb camera
+        :param img_sem: current image of the semantic segmentation camera
         :param h_current: x position of the currently observed pixel
         :param w_current: y position of the currently observed pixel
         :param height: height of img_sem_seg
@@ -44,39 +49,44 @@ class StreetSignDetector:
         current_pixels = []
         pixels.append([h_current, w_current])
         current_pixels.append([h_current, w_current])
-        img_sem_seg[h_current, w_current, 2] = 0
+        img_sem[h_current, w_current, 2] = 0
         while len(current_pixels) > 0:
             for pixel in current_pixels:
-                # pixel above
-                if pixel[0] > 0 and img_sem_seg[pixel[0] - 1, pixel[1], 0] == 0 and img_sem_seg[pixel[0] - 1, pixel[1], 1] == 220 and img_sem_seg[pixel[0] - 1, pixel[1], 2] == 220:
+                # check if pixel above is part of the street sign
+                if pixel[0] > 0 and img_sem[pixel[0] - 1, pixel[1], 0] == 0 and img_sem[pixel[0] - 1, pixel[1], 1] == 220 and img_sem[pixel[0] - 1, pixel[1], 2] == 220:
                     current_pixels.append([pixel[0] - 1, pixel[1]])
                     pixels.append([pixel[0] - 1, pixel[1]])
-                    img_sem_seg[pixel[0] - 1, pixel[1], 0] = 255
-                    img_sem_seg[pixel[0] - 1, pixel[1], 1] = 255
-                    img_sem_seg[pixel[0] - 1, pixel[1], 2] = 255
-                # pixel below
-                if pixel[0] < height - 1 and img_sem_seg[pixel[0] + 1, pixel[1], 0] == 0 and img_sem_seg[pixel[0] + 1, pixel[1], 1] == 220 and img_sem_seg[pixel[0] + 1, pixel[1], 2] == 220:
+                    img_sem[pixel[0] - 1, pixel[1], 0] = 255
+                    img_sem[pixel[0] - 1, pixel[1], 1] = 255
+                    img_sem[pixel[0] - 1, pixel[1], 2] = 255
+                # check if pixel below is part of the street sign
+                if pixel[0] < height - 1 and img_sem[pixel[0] + 1, pixel[1], 0] == 0 and img_sem[pixel[0] + 1, pixel[1], 1] == 220 and img_sem[pixel[0] + 1, pixel[1], 2] == 220:
                     current_pixels.append([pixel[0] + 1, pixel[1]])
                     pixels.append([pixel[0] + 1, pixel[1]])
-                    img_sem_seg[pixel[0] + 1, pixel[1], 0] = 255
-                    img_sem_seg[pixel[0] + 1, pixel[1], 1] = 255
-                    img_sem_seg[pixel[0] + 1, pixel[1], 2] = 255
-                # pixel left
-                if pixel[1] > 0 and img_sem_seg[pixel[0], pixel[1] - 1, 0] == 0 and img_sem_seg[pixel[0], pixel[1] - 1, 1] == 220 and img_sem_seg[pixel[0], pixel[1] - 1, 2] == 220:
+                    img_sem[pixel[0] + 1, pixel[1], 0] = 255
+                    img_sem[pixel[0] + 1, pixel[1], 1] = 255
+                    img_sem[pixel[0] + 1, pixel[1], 2] = 255
+                # check if pixel to the left is part of the street sign
+                if pixel[1] > 0 and img_sem[pixel[0], pixel[1] - 1, 0] == 0 and img_sem[pixel[0], pixel[1] - 1, 1] == 220 and img_sem[pixel[0], pixel[1] - 1, 2] == 220:
                     current_pixels.append([pixel[0], pixel[1] - 1])
                     pixels.append([pixel[0], pixel[1] - 1])
-                    img_sem_seg[pixel[0], pixel[1] - 1, 0] = 255
-                    img_sem_seg[pixel[0], pixel[1] - 1, 1] = 255
-                    img_sem_seg[pixel[0], pixel[1] - 1, 2] = 255
-                # pixel right
-                if pixel[1] < width - 1 and img_sem_seg[pixel[0], pixel[1] + 1, 0] == 0 and img_sem_seg[pixel[0], pixel[1] + 1, 1] == 220 and img_sem_seg[pixel[0], pixel[1] + 1, 2] == 220:
+                    img_sem[pixel[0], pixel[1] - 1, 0] = 255
+                    img_sem[pixel[0], pixel[1] - 1, 1] = 255
+                    img_sem[pixel[0], pixel[1] - 1, 2] = 255
+                # check if pixel to the right is part of the street sign
+                if pixel[1] < width - 1 and img_sem[pixel[0], pixel[1] + 1, 0] == 0 and img_sem[pixel[0], pixel[1] + 1, 1] == 220 and img_sem[pixel[0], pixel[1] + 1, 2] == 220:
                     current_pixels.append([pixel[0], pixel[1] + 1])
                     pixels.append([pixel[0], pixel[1] + 1])
-                    img_sem_seg[pixel[0], pixel[1] + 1, 0] = 255
-                    img_sem_seg[pixel[0], pixel[1] + 1, 1] = 255
-                    img_sem_seg[pixel[0], pixel[1] + 1, 2] = 255
+                    img_sem[pixel[0], pixel[1] + 1, 0] = 255
+                    img_sem[pixel[0], pixel[1] + 1, 1] = 255
+                    img_sem[pixel[0], pixel[1] + 1, 2] = 255
                 current_pixels.remove(pixel)
 
+        # ignore too small images
+        if(len(pixels) < 50):
+            return img_sem
+
+        # calculate offset of the street sign
         min_height = 999999
         max_height = 0
         min_width = 999999
@@ -92,14 +102,49 @@ class StreetSignDetector:
                 max_width = pixel[1]
         new_height = max_height - min_height
         new_width = max_width - min_width
-        blank_image = np.zeros((new_height+1, new_width+1, 3), np.uint8)
-        blank_image[:, :] = (255, 255, 255)
+
+        # create new image for the detected street sign
+        street_sign_image = np.zeros((new_height * 2 + 2, new_width * 2 + 2, 3), np.uint8)
+        street_sign_image[:, :] = (255, 255, 255)
+
+        # map every pixel of the semantic segmentation image to a 2x2 part of the rgb image (because the rgb
+        # resolution is two times the resolution of the semantic segmentation camera)
         for pixel in pixels:
-            blank_image[pixel[0] - min_height, pixel[1] - min_width, 0] = self.rgb_img[(pixel[0] - min_height)+230, (pixel[1] - min_width), 0]
-            blank_image[pixel[0] - min_height, pixel[1] - min_width, 1] = self.rgb_img[(pixel[0] - min_height)+230, (pixel[1] - min_width), 1]
-            blank_image[pixel[0] - min_height, pixel[1] - min_width, 2] = self.rgb_img[(pixel[0] - min_height)+230, (pixel[1] - min_width), 2]
-        cv2.imwrite('/home/mauriziovolanti/carla-ros-bridge/psaf2/Perception/street-sign-detector/src/img/' + filename + '.png', blank_image)
-        return img_sem_seg
+            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 0] = img_rgb[
+                (pixel[0] * 2), (pixel[1] * 2), 0]
+            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 0] = img_rgb[
+                (pixel[0] * 2 + 1), (pixel[1] * 2), 0]
+            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 0] = img_rgb[
+                (pixel[0] * 2), (pixel[1] * 2 + 1), 0]
+            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 0] = img_rgb[
+                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 0]
+
+            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 1] = img_rgb[
+                (pixel[0] * 2), (pixel[1] * 2), 1]
+            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 1] = img_rgb[
+                (pixel[0] * 2 + 1), (pixel[1] * 2), 1]
+            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 1] = img_rgb[
+                (pixel[0] * 2), (pixel[1] * 2 + 1), 1]
+            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 1] = img_rgb[
+                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 1]
+
+            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 2] = img_rgb[
+                (pixel[0] * 2), (pixel[1] * 2), 2]
+            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 2] = img_rgb[
+                (pixel[0] * 2 + 1), (pixel[1] * 2), 2]
+            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 2] = img_rgb[
+                (pixel[0] * 2), (pixel[1] * 2 + 1), 2]
+            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 2] = img_rgb[
+                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 2]
+        rospy.loginfo("New street sign detected")
+
+        # TODO: call image recognition function for 'street_sign_image' here
+
+        # FOR DEBUG ONLY
+        cv2.imwrite(str(pathlib.Path(__file__).parent.absolute()) + '/' + filename + '_' + str(self.global_filename_counter) + '.png', street_sign_image)
+        self.global_filename_counter += 1
+
+        return img_sem
 
     def rgb_image_updated(self, data):
         try:
@@ -110,22 +155,22 @@ class StreetSignDetector:
     def semantic_segmentation_image_updated(self, data):
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            self.semantic_segmentation_img = cv2.resize(self.semantic_segmentation_img, (800, 140))
         except CvBridgeError as e:
             print(e)
 
-    def check_for_street_signs(self):
-        height, width, channels = self.semantic_segmentation_img.shape
+    def check_for_street_signs(self, img_rgb, img_sem):
+        height, width, channels = img_sem.shape
 
         filename_counter = 0
 
+        # search for the next pixel of a street sign
         for h in range(height):
             for w in range(width):
-                if self.semantic_segmentation_img[h, w, 0] == 0 and self.semantic_segmentation_img[h, w, 1] == 220 and self.semantic_segmentation_img[h, w, 2] == 220:
-                    self.semantic_segmentation_img[h, w, 0] = 255
-                    self.semantic_segmentation_img[h, w, 1] = 255
-                    self.semantic_segmentation_img[h, w, 2] = 255
-                    self.semantic_segmentation_img = self.get_block_by_pixel(self.semantic_segmentation_img, h, w, height, width, str(filename_counter))
+                if img_sem[h, w, 0] == 0 and img_sem[h, w, 1] == 220 and img_sem[h, w, 2] == 220:
+                    img_sem[h, w, 0] = 255
+                    img_sem[h, w, 1] = 255
+                    img_sem[h, w, 2] = 255
+                    img_sem = self.get_block_by_pixel(img_rgb, img_sem, h, w, height, width, str(filename_counter))
                     filename_counter += 1
 
     def run(self):
@@ -133,17 +178,17 @@ class StreetSignDetector:
         Control loop
         :return:
         """
-        r = rospy.Rate(5000)
+        r = rospy.Rate(1)
         while not rospy.is_shutdown():
-            self.check_for_street_signs()
+            self.check_for_street_signs(self.rgb_img, self.semantic_segmentation_img)
             try:
                 r.sleep()
             except rospy.ROSInterruptException:
                 pass
 
 
-if __name__ == "__main__":
-    rospy.init_node('carla_manual_control', anonymous=True)
+def main():
+    rospy.init_node('vehicle_control', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
 
     detector = StreetSignDetector(role_name)
@@ -153,21 +198,5 @@ if __name__ == "__main__":
     finally:
         del detector
 
-
-
-'''
 if __name__ == "__main__":
-    rospy.init_node('carla_manual_control', anonymous=True)
-    role_name = rospy.get_param("~role_name", "ego_vehicle")
-
-    lmp = StreetSignDetector(role_name)
-
-    # idle so topic is still present
-    # (resp. if world changes)
-    try:
-        rospy.spin()
-    except rospy.ROSInterruptException:
-        pass
-'''
-
-
+    main()

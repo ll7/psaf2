@@ -1,5 +1,5 @@
 """
-Setup for carla_manual_control
+Setup for street-sign-detector
 """
 
 from distutils.core import setup

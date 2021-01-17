@@ -11,9 +11,6 @@ catkin_package(CATKIN_DEPENDS rospy)
 
 catkin_install_python(PROGRAMS src/street-sign-detector/street_sign_detector.py
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-                      
-catkin_install_python(PROGRAMS src/street-sign-detector/street_sign_detector_test.py
-DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(DIRECTORY launch/
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)
