@@ -9,7 +9,7 @@ roslaunch_add_file_check(launch)
 
 catkin_package(CATKIN_DEPENDS rospy)
 
-catkin_install_python(PROGRAMS src/global_planner/global_planner.py
+catkin_install_python(PROGRAMS src/global_planner/global_planner_commonroad.py
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 catkin_install_python(PROGRAMS src/global_planner/target_publisher.py

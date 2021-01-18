@@ -43,7 +43,7 @@ class CommonroadMapProvider:
             tags={Tag.URBAN, Tag.HIGHWAY},
         )
         writer.write_to_file("./commonroad_map.xml", OverwriteExistingFile.ALWAYS)
-        print("DONE")
+        rospy.loginfo("Commonroad-Map was created and stored.")
         self.commonroad_publisher.publish("./commonroad_map.xml")
 
     
