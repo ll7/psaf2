@@ -127,7 +127,6 @@ class GlobalPlanner:
         min_distance_start = None
         min_distance_end = None
 
-        print(route.size)
 
         # find last point before start position
         for i, point in enumerate(route):
@@ -145,8 +144,6 @@ class GlobalPlanner:
             cut_left = max_index + 1
         else:
             cut_left = 0
-
-        print(cut_left)
 
         # find last point after target position
         #TODO: MAKE DYNAMIC
@@ -166,10 +163,7 @@ class GlobalPlanner:
         else:
             cut_right = -1
 
-        print(cut_right)
-        print(route.shape)
         route = route[cut_left:cut_right]
-        print(route.size)
         return route
 
     def compute_magnitude_angle(self, target_location, current_location, qorientation):
@@ -204,7 +198,6 @@ class GlobalPlanner:
 
 
 if __name__ == "__main__":
-    print("HÄ")
     rospy.init_node('carla_manual_control', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
 
