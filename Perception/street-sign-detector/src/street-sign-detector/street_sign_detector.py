@@ -1,16 +1,17 @@
 from carla_msgs.msg import CarlaEgoVehicleControl
 from std_msgs.msg import Bool
 from sensor_msgs.msg import Image
-from custom_msgs.msg import PerceptionInfo
+from custom_carla_msgs.msg import PerceptionInfo
 from time import sleep
 import rospy
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import cv2
 import pathlib
+import sys
 
-
-darknet_path = str(pathlib.Path(__file__).parent.parent.absolute() / 'darknet')
+darknet_path = str(pathlib.Path(__file__).parent.parent.parent.absolute() / 'darknet')
+print(darknet_path)
 sys.path.append(darknet_path)
 from darknet_carla import YOLO
 
@@ -172,6 +173,7 @@ class StreetSignDetector:
 
     def semantic_segmentation_image_updated(self, data):
         try:
+#            print("semantic update")
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)

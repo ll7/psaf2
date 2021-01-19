@@ -21,11 +21,14 @@ def convertBack(x, y, w, h):
 
 
 def cvDrawBoxes(detections, img):
-    for detection in detections:
-        x, y, w, h = detection[2][0],\
-            detection[2][1],\
-            detection[2][2],\
-            detection[2][3]
+#    for detection in detections:
+#        x, y, w, h = detection[2][0],\
+#            detection[2][1],\
+#            detection[2][2],\
+#            detection[2][3]
+    for label, confidence, bbox in detections:
+        x, y, w, h = (bbox[0], bbox[1], bbox[2], bbox[3])
+        name_tag = label
         xmin, ymin, xmax, ymax = convertBack(
             float(x), float(y), float(w), float(h))
         pt1 = (xmin, ymin)
@@ -46,7 +49,7 @@ class YOLO(object):
         self.metaMain = None
         self.altNames = None
 
-        parentPath = Path(__file__).parent.absolute()
+        parentPath = Path(__file__).parent.parent.absolute()
         configPath = os.path.join(parentPath, "yolo-obj.cfg")
         weightPath = os.path.join(parentPath, "yolo-obj_last.weights")
         metaPath = os.path.join(parentPath, "data/obj.data")
@@ -60,35 +63,37 @@ class YOLO(object):
         if not os.path.exists(metaPath):
             raise ValueError("Invalid data file path `" +
                             os.path.abspath(metaPath)+"`")
-        if self.netMain is None:
-            self.netMain = darknet.load_net_custom(configPath.encode(
-                "ascii"), weightPath.encode("ascii"), 0, 1)  # batch size = 1
-        if self.metaMain is None:
-            self.metaMain = darknet.load_meta(metaPath.encode("ascii"))
-        if self.altNames is None:
-            try:
-                with open(metaPath) as metaFH:
-                    metaContents = metaFH.read()
-                    import re
-                    match = re.search("names *= *(.*)$", metaContents,
-                                    re.IGNORECASE | re.MULTILINE)
-                    if match:
-                        result = match.group(1)
-                    else:
-                        result = None
-                    try:
-                        if os.path.exists(result):
-                            with open(result) as namesFH:
-                                namesList = namesFH.read().strip().split("\n")
-                                self.altNames = [x.strip() for x in namesList]
-                    except TypeError:
-                        pass
-            except Exception:
-                pass
+#        if self.netMain is None:
+#            self.netMain = darknet.load_net_custom(configPath.encode(
+#                "ascii"), weightPath.encode("ascii"), 0, 1)  # batch size = 1
+#        if self.metaMain is None:
+#            self.metaMain = darknet.load_meta(metaPath.encode("ascii"))
+#        if self.altNames is None:
+#            try:
+#                with open(metaPath) as metaFH:
+#                    metaContents = metaFH.read()
+#                    import re
+#                    match = re.search("names *= *(.*)$", metaContents,
+#                                    re.IGNORECASE | re.MULTILINE)
+#                    if match:
+#                        result = match.group(1)
+#                    else:
+#                        result = None
+#                    try:
+#                        if os.path.exists(result):
+#                            with open(result) as namesFH:
+#                                namesList = namesFH.read().strip().split("\n")
+#                                self.altNames = [x.strip() for x in namesList]
+#                    except TypeError:
+#                        pass
+#            except Exception:
+#                pass
+
+        self.network, self.class_names, self.class_colors = darknet.load_network(configPath,  metaPath, weightPath, batch_size=1)
 
         # Create an image we reuse for each detect
-        self.darknet_image = darknet.make_image(darknet.network_width(self.netMain),
-                                        darknet.network_height(self.netMain),3)
+        self.darknet_image = darknet.make_image(darknet.network_width(self.network),
+                                        darknet.network_height(self.network), 3)
 
     def detect(self, input_image=None):
         if type(input_image) is str:
@@ -100,14 +105,14 @@ class YOLO(object):
 
         frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)
         frame_resized = cv2.resize(frame_rgb,
-                                    (darknet.network_width(self.netMain),
-                                    darknet.network_height(self.netMain)),
+                                    (darknet.network_width(self.network),
+                                    darknet.network_height(self.network)),
                                     interpolation=cv2.INTER_LINEAR)
 
         darknet.copy_image_from_bytes(self.darknet_image,frame_resized.tobytes())
         
-        detections = darknet.detect_image(self.netMain,
-                                          self.metaMain,
+        detections = darknet.detect_image(self.network,
+                                          self.class_names,
                                           self.darknet_image,
                                           thresh=0.1)
         
