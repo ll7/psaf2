@@ -38,7 +38,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         
         self._route_subscriber = rospy.Subscriber(
-            "/psaf/global_path", Path, self.path_updated)
+            f"/psaf/{role_name}/global_path", Path, self.path_updated)
 
         self._target_speed_subscriber = rospy.Subscriber(
             "/carla/{}/target_speed".format(role_name), Float64, self.target_speed_updated)
