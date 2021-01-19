@@ -8,5 +8,6 @@ catkin_python_setup()
 catkin_package(CATKIN_DEPENDS rospy)
 
 catkin_install_python(PROGRAMS src/helper_functions.py
-                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})                   
+                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})                 
 
+                      
