@@ -1,12 +1,18 @@
 from carla_msgs.msg import CarlaEgoVehicleControl
 from std_msgs.msg import Bool
 from sensor_msgs.msg import Image
+from custom_msgs.msg import PerceptionInfo
 from time import sleep
 import rospy
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import cv2
 import pathlib
+
+
+darknet_path = str(pathlib.Path(__file__).parent.parent.absolute() / 'darknet')
+sys.path.append(darknet_path)
+from darknet_carla import YOLO
 
 
 class StreetSignDetector:
@@ -28,6 +34,8 @@ class StreetSignDetector:
         self._control = CarlaEgoVehicleControl()
         self.rgb_img = np.zeros((600, 800, 3), np.uint8)
         self.semantic_segmentation_img = np.zeros((300, 400, 3), np.uint8)
+        self.yolo_detector = YOLO()
+
         # FOR DEBUG ONLY
         self.global_filename_counter = 0
 
@@ -138,7 +146,17 @@ class StreetSignDetector:
                 (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 2]
         rospy.loginfo("New street sign detected")
 
+
+
+        self.detection = PerceptionInfo()
+        detection, img_detected = self.yolo_detector.detect(street_sign_image)
+        cv2.imshow('Demo', img_detected)
+        cv2.waitKey(1)
+
+        print(detection)
         # TODO: call image recognition function for 'street_sign_image' here
+
+
 
         # FOR DEBUG ONLY
         cv2.imwrite(str(pathlib.Path(__file__).parent.absolute()) + '/' + filename + '_' + str(self.global_filename_counter) + '.png', street_sign_image)
