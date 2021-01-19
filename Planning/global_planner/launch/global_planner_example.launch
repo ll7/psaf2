@@ -51,7 +51,7 @@
 
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
   
-  <include file="$(find global-planner)/launch/global-planner.launch">  </include>
-  <include file="$(find global-planner)/launch/global-planner-target-publisher.launch">  </include>
+  <include file="$(find global_planner)/launch/global_planner.launch">  </include>
+  <include file="$(find global_planner)/launch/global_planner_target_publisher.launch">  </include>
 
 </launch>

@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="global-planner" type="global_planner_commonroad.py" name="global_planner" output="screen">
-  </node>
-
-</launch>
-

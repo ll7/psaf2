@@ -40,11 +40,11 @@
   <!-- Add Launchfiles here -->
   
   <!-- Perception-->
-  <include file="$(find lanelet-map-provider)/launch/lanelet-map-provider.launch">  </include>
+  <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
   
   <!-- Planning -->
-  <include file="$(find global-planner)/launch/global-planner.launch">  </include>  
-  <include file="$(find global-planner)/launch/global-planner-target-publisher.launch">  </include>
+  <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
+  <include file="$(find global_planner)/launch/global_planner_target_publisher.launch">  </include>
 
   <!-- Acting-->
   <include file="$(find steering_controllers)/launch/vehicle_control.launch">  </include>
