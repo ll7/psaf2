@@ -13,6 +13,7 @@ add_message_files(
   FILES
   LaneletMap.msg
   GlobalPath.msg
+  PerceptionInfo.msg
 )
 
 generate_messages(
