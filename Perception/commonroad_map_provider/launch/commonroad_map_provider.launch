@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="commonroad_map_provider" type="commonroad_map_provider.py" name="commonroad_map_provider" output="screen">
+  </node>
+
+</launch>
+
