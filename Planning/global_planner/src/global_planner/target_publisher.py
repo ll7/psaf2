@@ -4,7 +4,7 @@ from sensor_msgs.msg import NavSatFix
 class TargetPublisher:
     def __init__(self, role_name):
         
-        self.target_pub = rospy.Publisher("/psaf/target_point", NavSatFix, queue_size=1, latch=True)
+        self.target_pub = rospy.Publisher(f"/psaf/{role_name}target_point", NavSatFix, queue_size=1, latch=True)
         target = NavSatFix()
         target.latitude = -0.0016077391132190087
         target.longitude = -8.324308136330368e-05

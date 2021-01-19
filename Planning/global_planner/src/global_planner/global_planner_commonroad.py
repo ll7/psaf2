@@ -1,7 +1,6 @@
 import rospy
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 import math
 
 from commonroad.common.file_reader import CommonRoadFileReader
@@ -30,9 +29,9 @@ class GlobalPlanner:
     def __init__(self, role_name):
         self.role_name = role_name
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
-        self.target_sub = rospy.Subscriber("/psaf/target_point", NavSatFix, self.target_received)
-        self.odometry_sub = rospy.Subscriber("carla/ego_vehicle/odometry", Odometry, self.odometry_received)
-        self.inital_pose_sub = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
+        self.target_sub = rospy.Subscriber(f"/psaf/{self.role_name}/target_point", NavSatFix, self.target_received)
+        self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
+        self.inital_pose_sub = rospy.Subscriber(f"/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
 
         self.path_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path", Path, queue_size=1, latch=True)
 
@@ -44,6 +43,8 @@ class GlobalPlanner:
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open() 
         self.scenario.scenario_id = "DEU"
+        while self.scenario is None or self.current_orientation is None:
+            rospy.sleep(0.05)
         self.create_global_plan()
         
 
@@ -53,7 +54,7 @@ class GlobalPlanner:
 
     def init_pose_received(self, pose):
         print("New Start")
-        while self.scenario is None or self.current_pos is None:
+        while self.scenario is None or self.current_orientation is None:
             rospy.sleep(0.05)
         rospy.sleep(0.1)
         self.create_global_plan()
@@ -67,7 +68,6 @@ class GlobalPlanner:
         #     self.create_global_plan()
     
     def create_global_plan(self):
-        start = time.time()
         print("Path creation started")
         goal_state = State(position=Rectangle(2, 2, center=np.array([10, 50])), time_step=Interval(1, 200), velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2))
         goal_region = GoalRegion([goal_state])
