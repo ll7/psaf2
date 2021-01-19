@@ -6,8 +6,8 @@ import numpy as np
 from commonroad.common.file_reader import CommonRoadFileReader
 from commonroad.visualization.draw_dispatch_cr import draw_object
 from helper_functions import calc_egocar_yaw
-from SMP.route_planner.route_planner.route_planner import RoutePlanner
-from SMP.route_planner.route_planner.utils_visualization import draw_route, get_plot_limits_from_reference_path, \
+from commonroad_search.SMP.route_planner.route_planner.route_planner import RoutePlanner
+from commonroad_search.SMP.route_planner.route_planner.utils_visualization import draw_route, get_plot_limits_from_reference_path, \
     get_plot_limits_from_routes
 from commonroad.planning.goal import GoalRegion
 from commonroad.scenario.trajectory import State
