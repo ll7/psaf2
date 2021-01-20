@@ -165,8 +165,8 @@ class StreetSignDetector:
 #            cv2.imshow('Demo', img_detected)
 #            cv2.waitKey(1)
             
-            print("before: ")
-            print(*detection_list, sep='\n')
+            #print("before: ")
+            #print(*detection_list, sep='\n')
 
             for det in detection_list:
                 if det[0] == 'stop':
