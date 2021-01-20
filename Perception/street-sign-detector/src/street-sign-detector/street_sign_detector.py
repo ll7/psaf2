@@ -165,14 +165,17 @@ class StreetSignDetector:
 #            cv2.imshow('Demo', img_detected)
 #            cv2.waitKey(1)
             
-            #print("before: ")
-            #print(*detection_list, sep='\n')
+            print("list of detections: ")
+            print(*detection_list, sep='\n')
 
             for det in detection_list:
                 if det[0] == 'stop':
                     self.detection.values = ['stop']
                     self.detection.objects = ['sign']
+                elif det[0].startswith('traffic_light'):
+                    print("traffic light recognized: ", det[0])
                 else:
+                # speed limits
                     self.detection.values = [det[0].split('_')[-1]]
                     self.detection.poses = []
                     self.detection.objects = [' '.join(det[0].split('_')[:-1])]
@@ -197,11 +200,11 @@ class StreetSignDetector:
             if self.detection:
                 #print(self.detection)
                 if type(self.detection) is PerceptionInfo:
-                    print(type(self.detection))
                     self.perception_info_publisher.publish(self.detection)
-                if self.detection.values:
+                    print("published perception info")
+                if self.detection.values and self.detection.values[0].isnumeric():
                     self.speed_limit_publisher.publish(float(self.detection.values[0]))
-                    print("published!")
+                    print("published speed limit")
 
 
 

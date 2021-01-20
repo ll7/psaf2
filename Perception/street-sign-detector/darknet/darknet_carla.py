@@ -93,7 +93,10 @@ class YOLO(object):
 #                                self.altNames = [x.strip() for x in namesList]
 #                    except TypeError:
 #                        pass
-#            except Exception:
+#                print("got altNames:", self.altNames)
+#            except Exception as e:
+#                print("Exception creating altNames")
+#                print_exc()
 #                pass
 
         self.network, self.class_names, self.class_colors = darknet.load_network(configPath,  metaPath, weightPath, batch_size=1)

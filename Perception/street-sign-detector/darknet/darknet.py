@@ -176,6 +176,7 @@ def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45
     predictions = remove_negatives(detections, class_names, num)
     predictions = decode_detection(predictions)
     free_detections(detections, num)
+    
     return sorted(predictions, key=lambda x: x[1])
 
 
