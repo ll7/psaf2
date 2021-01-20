@@ -25,12 +25,13 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
         # theta_e corrects the heading error
         theta_e = normalize_angle(calc_path_yaw(currentPath, current_target_idx) - calc_egocar_yaw(currentPose))
+
         # theta_d corrects the cross track error
         theta_d = np.arctan2(self.k * error_front_axle, currentSpeed)
         # Steering control      
         delta = theta_e + theta_d
         #if len(currentPath.poses) != 0:
-        #    self.targetpointpublisher.publish(currentPath.poses[current_target_idx])
+       #    self.targetpointpublisher.publish(currentPath.poses[current_target_idx])
         return np.clip(delta, -self.max_steer, self.max_steer)
 
     def calc_target_index(self, currentPath, currentPose):

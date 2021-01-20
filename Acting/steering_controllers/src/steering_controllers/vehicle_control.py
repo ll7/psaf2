@@ -51,6 +51,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         self.vehicle_control_publisher = rospy.Publisher(
             "/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
+
         
     def run_step(self, target_speed, current_speed):
         """
@@ -79,7 +80,9 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         """
         callback on new odometry data
         """
-
+        self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
+                                        odo.twist.twist.linear.y ** 2 +
+                                        odo.twist.twist.linear.z ** 2) * 3.6
         self._current_pose = odo.pose.pose
     
     def speed_updated(self, speed):
