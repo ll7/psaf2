@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import time
 import darknet
+import traceback
 
 from PIL import Image
 import sys
@@ -34,11 +35,17 @@ def cvDrawBoxes(detections, img):
         pt1 = (xmin, ymin)
         pt2 = (xmax, ymax)
         cv2.rectangle(img, pt1, pt2, (0, 255, 0), 1)
-        cv2.putText(img,
-                    detection[0].decode() +
-                    " [" + str(round(detection[1] * 100, 2)) + "]",
-                    (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    [0, 255, 0], 2)
+        try:
+            cv2.putText(img,
+                        label +
+                        " [" + str(round(float(confidence) * 100, 2)) + "]",
+                        (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        [0, 255, 0], 2)
+        except Exception as e:
+            print(label," / ", confidence)
+            traceback.print_exc()
+            pass
+            
     return img
 
 
@@ -116,6 +123,8 @@ class YOLO(object):
                                           self.darknet_image,
                                           thresh=0.1)
         
+#        if len(detections) > 0:
+#            print("detected!")
         
         image = cvDrawBoxes(detections, frame_resized)
         

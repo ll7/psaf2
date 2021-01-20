@@ -1,5 +1,5 @@
 from carla_msgs.msg import CarlaEgoVehicleControl
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64
 from sensor_msgs.msg import Image
 from custom_carla_msgs.msg import PerceptionInfo
 from time import sleep
@@ -9,17 +9,19 @@ import numpy as np
 import cv2
 import pathlib
 import sys
+import traceback
 
 darknet_path = str(pathlib.Path(__file__).parent.parent.parent.absolute() / 'darknet')
 print(darknet_path)
 sys.path.append(darknet_path)
 from darknet_carla import YOLO
+from darknet import print_detections
 
 
 class StreetSignDetector:
     """
     Class to use /carla/<role_name>/semantic_segmentation_front/image and /carla/<role_name>/rgb_front/image topic
-    to detect street signs and publish them to /psaf/StreetSign topic.
+    to detect street signs and publish them to /psaf/<role_name>/street_sign topic.
     """
 
     def __init__(self, role_name):
@@ -31,6 +33,12 @@ class StreetSignDetector:
 
         self._rgb_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/rgb_front/image".format(role_name), Image, self.rgb_image_updated)
+            
+        self.detection = None
+        self.speed_limit_publisher = rospy.Publisher(
+            "/psaf/{}/speed_limit".format(self.role_name), Float64, queue_size=1, latch=True)
+        self.perception_info_publisher = rospy.Publisher(
+            "/psaf/{}/perception_info".format(self.role_name), PerceptionInfo, queue_size=1, latch=True)
 
         self._control = CarlaEgoVehicleControl()
         self.rgb_img = np.zeros((600, 800, 3), np.uint8)
@@ -122,11 +130,11 @@ class StreetSignDetector:
             street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 0] = img_rgb[
                 (pixel[0] * 2), (pixel[1] * 2), 0]
             street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 0] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2), 0]
+                (pixel[0] * 2 + 1), (pixel[1] * 2), 2]
             street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 0] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2 + 1), 0]
+                (pixel[0] * 2), (pixel[1] * 2 + 1), 2]
             street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 0] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 0]
+                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 2]
 
             street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 1] = img_rgb[
                 (pixel[0] * 2), (pixel[1] * 2), 1]
@@ -138,28 +146,67 @@ class StreetSignDetector:
                 (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 1]
 
             street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 2] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2), 2]
+                (pixel[0] * 2), (pixel[1] * 2), 0]
             street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 2] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2), 2]
+                (pixel[0] * 2 + 1), (pixel[1] * 2), 0]
             street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 2] = img_rgb[
                 (pixel[0] * 2), (pixel[1] * 2 + 1), 2]
             street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 2] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 2]
+                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 0]
         rospy.loginfo("New street sign detected")
 
 
 
         self.detection = PerceptionInfo()
-        detection, img_detected = self.yolo_detector.detect(street_sign_image)
-        cv2.imshow('Demo', img_detected)
-        cv2.waitKey(1)
 
-        print(detection)
-        # TODO: call image recognition function for 'street_sign_image' here
+        try:            
+            # call yolo darknet detector
+            detection_list, img_detected = self.yolo_detector.detect(img_rgb)
+#            cv2.imshow('Demo', img_detected)
+#            cv2.waitKey(1)
+            
+            print("before: ")
+            print(*detection_list, sep='\n')
+
+            for det in detection_list:
+                if det[0] == 'stop':
+                    self.detection.values = ['stop']
+                    self.detection.objects = ['sign']
+                else:
+                    self.detection.values = [det[0].split('_')[-1]]
+                    self.detection.poses = []
+                    self.detection.objects = [' '.join(det[0].split('_')[:-1])]
+                    
+                    if self.detection.objects[0] == 'traffic sign' and (self.detection.values[0] == '90'
+                                             or self.detection.values[0] == '60'
+                                             or self.detection.values[0] == '30'):
+                        self.detection.objects = ['speed limit']
+                        
+                    if self.detection.objects[0] == 'traffic sign limit':
+                        self.detection.objects = ['speed limit']
+
+#                print('\n====================Perception====================')
+#                print('detection objects: ', self.detection.objects, self.detection.values)
+            print_detections(detection_list)
+            
+        except Exception as e:
+            traceback.print_exc()
+            self.detection = None
+            pass
+        finally:
+            if self.detection:
+                #print(self.detection)
+                if type(self.detection) is PerceptionInfo:
+                    print(type(self.detection))
+                    self.perception_info_publisher.publish(self.detection)
+                if self.detection.values:
+                    self.speed_limit_publisher.publish(float(self.detection.values[0]))
+                    print("published!")
 
 
 
         # FOR DEBUG ONLY
+        street_sign_image = cv2.cvtColor(street_sign_image, cv2.COLOR_BGR2RGB)
         cv2.imwrite(str(pathlib.Path(__file__).parent.absolute()) + '/' + filename + '_' + str(self.global_filename_counter) + '.png', street_sign_image)
         self.global_filename_counter += 1
 
