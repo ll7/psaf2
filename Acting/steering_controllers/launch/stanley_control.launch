@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="steering_controllers" type="stanley_control.py" name="stanley_control" output="screen">
-  </node>
-
-</launch>
-

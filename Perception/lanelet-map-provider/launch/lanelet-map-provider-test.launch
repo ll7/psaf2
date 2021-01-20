@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="lanelet-map-provider" type="lanelet_map_provider_test.py" name="lanelet_map_provider_tester" output="screen">
-  </node>
-
-</launch>
-
