@@ -50,6 +50,7 @@
   
   <!-- Perception-->
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
+  <include file="$(find street_sign_detector)/launch/street_sign_detector.launch">  </include>
   
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
