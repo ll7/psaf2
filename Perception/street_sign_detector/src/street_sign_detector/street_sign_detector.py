@@ -25,23 +25,30 @@ class StreetSignDetector:
     def __init__(self, role_name):
         self.role_name = role_name
         self.bridge = CvBridge()
-
-        self.rgb_img = np.zeros((600, 800, 3), np.uint8)
-        self.semantic_segmentation_img = np.zeros((300, 400, 3), np.uint8)
         self.yolo_detector = YOLO()
 
-        # COLOR SETTINGS
-        self.street_signs_color = [ 0, 220, 220 ]
+        # CAMERA RESOLUTIONS
+        # TODO adjustable resolutions (or even better, get resolution from topic)
+        self.rgb_img = np.zeros((600, 800, 3), np.uint8)
+        self.semantic_segmentation_img = np.zeros((300, 400, 3), np.uint8)
+
+        # COLOR SETTINGS (B, R, G)
+        self.semantic_street_signs_color = [ 0, 220, 220 ]
+        self.semantic_traffic_light_color = [ 30, 170, 250 ]
+        self.semantic_road_line_color = [ 50, 234, 157 ]        # stop sign on street
+        self.semantic_replace_by_color = [ 255, 255, 255 ]      # sign's color to be (temporarily) replaced by
+
+        # array of colors that should be extracted in blocks
+        self.semantic_segment_search_colors = [ self.semantic_street_signs_color, self.semantic_traffic_light_color ]
 
         # FOR DEBUGGING 
         self.debug = False                      # enables debug messages and saving of found street signs
-        self.global_filename_counter = 0
+        self.global_filename_counter = 0        # debug image file counter
         self.filename_prefix = ""               # prefix for street sign images
 
         # SUBSCRIBERS
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
-            "/carla/{}/semantic_segmentation_front/image".format(role_name), Image,
-            self.semantic_segmentation_image_updated)
+            "/carla/{}/semantic_segmentation_front/image".format(role_name), Image, self.semantic_segmentation_image_updated)
 
         self._rgb_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/rgb_front/image".format(role_name), Image, self.rgb_image_updated)
@@ -59,14 +66,48 @@ class StreetSignDetector:
         try:
             self.rgb_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
-            print(e)
+            print_exc()
 
 
     def semantic_segmentation_image_updated(self, data):
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
-            print(e)
+            print_exc()
+
+
+    def detect_street_signs(self, img_rgb, img_sem):
+        '''
+        Searches for street signs in the semantic segmentation (img_sem)
+        if present, calls get_darknet_detection on the (whole) RGB camera image to get their detections
+
+        :param img_rgb: The RGB camera image
+        :param img_sem: The semantic segmentation camera image (by now its resolution must be 0.5 times the RGB camera's resolution)
+        :return: If possible, the detection as an instance of PerceptionInfo; None otherwise
+        '''
+
+        height, width, channels = img_sem.shape
+
+        street_sign_counter = 0
+
+        # search for the next pixel of a street sign
+        for h in range(height):
+            for w in range(width):
+                # if one pixel's color is in semantic_segment_search_colors, get the whole block
+                if img_sem[h, w] in self.semantic_segment_search_colors:
+                    color_found = img_sem[h, w]
+                    img_sem = self.get_block_by_pixel(img_rgb, img_sem, color_found, h, w, height, width, self.filename_prefix + str(street_sign_counter))
+
+                    if img_sem != []: # valid result? 
+                        filename_counter += 1
+
+        # if there have been found any pixel blocks of interest, call darknet and return its detection
+        if street_sign_counter > 0:
+            darknet_detection = self.get_darknet_detection(img_rgb)
+            return darknet_detection
+
+        # or return None otherwise
+        return None
 
 
     def get_block_by_pixel(self, img_rgb, img_sem, search_color, h_current, w_current, height, width, filename):
@@ -84,33 +125,41 @@ class StreetSignDetector:
         :param filename: filename for the next street sign
         :return: the extracted img_sem part in which the latest found street sign is contained
         '''
+
         pixels = []
         current_pixels = []
         pixels.append([h_current, w_current])
         current_pixels.append([h_current, w_current])
         img_sem[h_current, w_current, 2] = 0
+
+        # TODO adjustable threshold ? 
+
         while len(current_pixels) > 0:
             for pixel in current_pixels:
+
                 # check if pixel above is part of the street sign
                 if pixel[0] > 0 and img_sem[pixel[0] - 1, pixel[1]] == search_color:
                     current_pixels.append([pixel[0] - 1, pixel[1]])
                     pixels.append([pixel[0] - 1, pixel[1]])
-                    img_sem[pixel[0] - 1, pixel[1]] = [ 255, 255, 255 ]
+                    img_sem[pixel[0] - 1, pixel[1]] = self.semantic_replace_by_color
+
                 # check if pixel below is part of the street sign
                 if pixel[0] < height - 1 and img_sem[pixel[0] + 1, pixel[1]] == search_color:
                     current_pixels.append([pixel[0] + 1, pixel[1]])
                     pixels.append([pixel[0] + 1, pixel[1]])
-                    img_sem[pixel[0] + 1, pixel[1]] = [ 255, 255, 255 ]
+                    img_sem[pixel[0] + 1, pixel[1]] = self.semantic_replace_by_color
+
                 # check if pixel to the left is part of the street sign
                 if pixel[1] > 0 and img_sem[pixel[0], pixel[1] - 1] == search_color:
                     current_pixels.append([pixel[0], pixel[1] - 1])
                     pixels.append([pixel[0], pixel[1] - 1])
-                    img_sem[pixel[0], pixel[1] - 1] = [ 255, 255, 255 ]
+                    img_sem[pixel[0], pixel[1] - 1] = self.semantic_replace_by_color
+
                 # check if pixel to the right is part of the street sign
                 if pixel[1] < width - 1 and img_sem[pixel[0], pixel[1] + 1] == search_color:
                     current_pixels.append([pixel[0], pixel[1] + 1])
                     pixels.append([pixel[0], pixel[1] + 1])
-                    img_sem[pixel[0], pixel[1] + 1] = [ 255, 255, 255 ]
+                    img_sem[pixel[0], pixel[1] + 1] = self.semantic_replace_by_color
                 current_pixels.remove(pixel)
 
         # ignore too small images, return empty array
@@ -122,21 +171,28 @@ class StreetSignDetector:
         max_height = 0
         min_width = 999999
         max_width = 0
+
         for pixel in pixels:
             if pixel[0] < min_height:
                 min_height = pixel[0]
+
             if pixel[0] > max_height:
                 max_height = pixel[0]
+
             if pixel[1] < min_width:
                 min_width = pixel[1]
+
             if pixel[1] > max_width:
                 max_width = pixel[1]
+
         new_height = max_height - min_height
         new_width = max_width - min_width
 
         # create new image for the detected street sign
         street_sign_image = np.zeros((new_height * 2 + 2, new_width * 2 + 2, 3), np.uint8)
         street_sign_image[:, :] = (255, 255, 255)
+
+        # TODO adjustable resolutions?
 
         # map every pixel of the semantic segmentation image to a 2x2 part of the rgb image (because the rgb
         # resolution is two times the resolution of the semantic segmentation camera)
@@ -179,27 +235,14 @@ class StreetSignDetector:
         return img_sem
 
 
-    def check_for_street_signs(self, img_rgb, img_sem):
-        height, width, channels = img_sem.shape
-
-        filename_counter = 0
-
-        # search for the next pixel of a street sign
-        for h in range(height):
-            for w in range(width):
-                if img_sem[h, w] == self.street_signs_color:
-                    img_sem[h, w] = [255, 255, 255]
-                    img_sem = self.get_block_by_pixel(img_rgb, img_sem, self.street_signs_color, h, w, height, width, self.filename_prefix + str(filename_counter))
-
-                    if img_sem != []: # valid result? 
-                        filename_counter += 1
-                        detection = self.get_darknet_detection(img_rgb)
-
-                        if detection:
-                            self.publish_detection(detection)
-
-
     def get_darknet_detection(self, img_rgb):
+        '''
+        Calls the yolo detector to detect objects in the given RGB camera image.
+
+        :param img_rgb: The full image of the RGB camera
+        :return: If possible, the detection with the highest confidence as an PerceptionInfo instance; None otherwise
+        '''
+
         detection = PerceptionInfo()
 
         try:            
@@ -213,24 +256,29 @@ class StreetSignDetector:
 
             # map detection_list (sorted ascending by confidence) to PerceptionInfo instance
             # thus, at the moment, only the last detection of detection_list is used (i.e. highest confidence)
-            for det in detection_list:
-                # det[0] is the label (or class name), e.g. traffic_sign_90, stop or traffic_light_red
+            for detection_element in detection_list:
+                # detection_element[0] is the label (or class name), e.g. traffic_sign_90, stop or traffic_light_red
 
                 # stop sign
-                if det[0] == 'stop':
+                if detection_element[0] == 'stop':
                     detection.values = ['stop']
                     detection.objects = ['sign']
 
                 # traffic lights
-                elif det[0].startswith('traffic_light'):
+                elif detection_element[0].startswith('traffic_light'):
                     if self.debug:
-                        print("traffic light recognized: ", det[0])
+                        print("traffic light recognized: ", detection_element[0])
 
                 # speed limits
                 else:
-                    detection.values = [det[0].split('_')[-1]]
+                    '''
+                    split and replace class name characters, e.g. traffic_sign_90 becomes traffic sign 90
+                    where values gets assigned the last split (90) and objects gets assigned all splits except the last,
+                    joined together by a blank space (i.e. traffic sign / traffic light)
+                    '''
+                    detection.values = [detection_element[0].split('_')[-1]]
                     detection.poses = []
-                    detection.objects = [' '.join(det[0].split('_')[:-1])]
+                    detection.objects = [' '.join(detection_element[0].split('_')[:-1])]
                     
                     if detection.objects[0] == 'traffic sign' and (detection.values[0] == '90'
                                              or detection.values[0] == '60'
@@ -260,11 +308,20 @@ class StreetSignDetector:
 
 
     def publish_detection(self, detection):
+        '''
+        Publish the detection to the relevant topic(s)
+
+        :param detection: Detection as an instance of PerceptionInfo
+        :return:
+        '''
+
+        if not type(detection) is PerceptionInfo or not detection:
+            return None
+
         # if detection actually has a value and is of type PerceptionInfo
-        if type(detection) is PerceptionInfo:
-            self.perception_info_publisher.publish(detection)
-            if self.debug:
-                print("published perception info")
+        self.perception_info_publisher.publish(detection)
+        if self.debug:
+            print("published perception info")
 
         # if detection has numeric values, these are the recognized speed limits
         if detection.values and detection.values[0].isnumeric():
@@ -281,7 +338,10 @@ class StreetSignDetector:
         """
         r = rospy.Rate(1)
         while not rospy.is_shutdown():
-            self.check_for_street_signs(self.rgb_img, self.semantic_segmentation_img)
+            street_sign_detections = self.detect_street_signs(self.rgb_img, self.semantic_segmentation_img)
+
+            if street_sign_detections:
+                self.publish_detection(street_sign_detections) 
             try:
                 r.sleep()
             except rospy.ROSInterruptException:
@@ -289,7 +349,7 @@ class StreetSignDetector:
 
 
 def main():
-    rospy.init_node('vehicle_control', anonymous=True)
+    rospy.init_node('street_sign_detector', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
 
     detector = StreetSignDetector(role_name)
