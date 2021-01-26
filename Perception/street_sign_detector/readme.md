@@ -25,8 +25,9 @@ Until now, only speed limit sign recognitions are done (depending on the results
 
 ## Installation notes
 
-The darknet binaries checked in are prebuilt for RTX 2080 GPU and others, otherwise the correct GPU architecture needs to be configured in the `darknet/Makefile` and darknet then rebuilt via `make -j8`. Nvidia CUDA Toolkit and OpenCV 4.5 need to be installed as well, see the `install_cuda.sh` and `install_opencv.sh` files on how to do that.
-Furthermore, darknet expects a `yolo-obj_last.weights` file containing the trained network in this package's root - until now, [last year's pretrained file](https://git.rz.uni-augsburg.de/luttkule/carla-praktikum-ws2019/-/blob/master/carla_object_recognition/yolo-obj_last.weights) is used.
+First, the darknet sources need to be cloned from git via `git submodule init --update`.
+Afterwards, the correct GPU architecture needs to be configured in the `darknet/Makefile` and darknet then (re)built via `make -j8` run within the darknet repository's folder. Nvidia CUDA Toolkit and OpenCV 4.5 need to be installed as well, see the `install_cuda.sh` and `install_opencv.sh` files on how to do that.
+Furthermore, darknet expects a `yolo-obj_last.weights` file containing the trained network in this package's root - as of now, [last year's pretrained file](https://git.rz.uni-augsburg.de/luttkule/carla-praktikum-ws2019/-/blob/master/carla_object_recognition/yolo-obj_last.weights) is used.
 
 
 ## Launch
