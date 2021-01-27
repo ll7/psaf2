@@ -96,7 +96,6 @@ class StreetSignDetector:
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
             if self.debug:
-#                img = cv2.cvtColor(self.semantic_segmentation_img.copy(), cv2.COLOR_BGR2RGB)
 #                cv2.imwrite(str(pathlib.Path(__file__).parent.absolute()) + '/semseg.png', img)
                 cv2.imshow('Semantic', self.semantic_segmentation_img)
                 cv2.waitKey(1)
@@ -107,8 +106,8 @@ class StreetSignDetector:
     def rgb_front_camera_info_updated(self, data):
         try:
             if self.rgb_img_width != data.width or self.rgb_img_height != data.height:
-                print("rgb width old: ", self.rgb_img_width)
-                print("rgb width new: ", data.width)
+#                print("rgb width old: ", self.rgb_img_width)
+#                print("rgb width new: ", data.width)
                 self.rgb_img_width = data.width
                 self.rgb_img_height = data.height
                 self.rgb_img = np.zeros((data.height, data.width, 3), np.uint8)
@@ -121,8 +120,8 @@ class StreetSignDetector:
     def semantic_segmentation_front_camera_info_updated(self, data):
         try:
             if self.semantic_segmentation_img_width != data.width or self.semantic_segmentation_img_height != data.height:
-                print("sem width old: ", self.semantic_segmentation_img_width)
-                print("sem width new: ", data.width)
+#                print("sem width old: ", self.semantic_segmentation_img_width)
+#                print("sem width new: ", data.width)
                 self.semantic_segmentation_img_width = data.width
                 self.semantic_segmentation_img_height = data.height
                 self.semantic_segmentation_img = np.zeros((data.height, data.width, 3), np.uint8)
@@ -159,7 +158,8 @@ class StreetSignDetector:
                         if np.array_equal(img_sem[h, w], search_color):
                             color_found = img_sem[h, w].copy()
                             img_sem[h, w] = self.semantic_replace_by_color
-                            returned_img_sem = self.get_block_by_pixel(img_rgb, img_sem, color_found, h, w, height, width, self.filename_prefix + str(street_sign_counter))
+                            (street_sign_image, returned_img_sem) = self.get_block_by_pixel(img_rgb, img_sem, color_found, h, w, height, width, self.filename_prefix + str(street_sign_counter))
+                            
 
                             # valid result?
                             if not returned_img_sem is None: 
@@ -209,7 +209,7 @@ class StreetSignDetector:
         :param height: height of img_sem_seg
         :param width: width of img_sem_seg
         :param filename: filename for the next street sign
-        :return: the extracted img_sem part in which the latest found street sign is contained (or None instead)
+        :return: returns a list of the extracted img_sem part in which the latest found street sign is contained and of the img_sem with all the pixels of the current street sign block converted to semantic_replace_by_color - or it returns None instead, when the block of pixels belonging together is too small and below the configured threshold (e.g. the traffic sign is too far away and therefore too small until now)
         '''
 
         pixels = []
@@ -250,9 +250,9 @@ class StreetSignDetector:
                     img_sem[pixel[0], pixel[1] + 1] = self.semantic_replace_by_color
                 current_pixels.remove(pixel)
 
-        # ignore too small images, return empty array
+        # ignore too small images, return None
         if(len(pixels) < self.minimal_object_size_for_detection):
-            return None
+            return (None, None)
 
         # calculate offset of the street sign
         min_height = 999999
@@ -315,9 +315,13 @@ class StreetSignDetector:
 
         rospy.loginfo("New street sign detected")
 
+
+        # save the cut out street sign to file for debug / training reasons...
         if self.debug:
             street_sign_image = cv2.cvtColor(street_sign_image, cv2.COLOR_BGR2RGB)
             filename_base = str(pathlib.Path(__file__).parent.absolute()) + "/" + filename + "_{}.png"
+            
+            # ... without overwriting anything ...
             while pathlib.Path(filename_base.format(str(self.global_filename_counter))).is_file():
                 self.global_filename_counter += 1
             filename_full = filename_base.format(str(self.global_filename_counter))
@@ -325,7 +329,7 @@ class StreetSignDetector:
             cv2.imwrite(filename_full, street_sign_image)
             self.global_filename_counter += 1
 
-        return img_sem
+        return (street_sign_image, img_sem)
 
 
     def get_darknet_detection(self, img_rgb):
@@ -349,6 +353,7 @@ class StreetSignDetector:
 
             # map detection_list (sorted ascending by confidence) to PerceptionInfo instance
             # thus, at the moment, only the last detection of detection_list is used (i.e. highest confidence)
+            # TODO ?
             for detection_element in detection_list:
                 # detection_element[0] is the label (or class name), e.g. traffic_sign_90, stop or traffic_light_red
 
@@ -364,11 +369,11 @@ class StreetSignDetector:
 
                 # speed limits
                 else:
-                '''
-                split and replace class name characters, e.g. traffic_sign_90 becomes traffic sign 90
-                where values gets assigned the last split (90) and objects gets assigned all splits except the last,
-                joined together by a blank space (i.e. traffic sign / traffic light)
-                '''
+                    '''
+                    split and replace class name characters, e.g. traffic_sign_90 becomes traffic sign 90
+                    where values gets assigned the last split (90) and objects gets assigned all splits except the last,
+                    joined together by a blank space (i.e. traffic sign / traffic light)
+                    '''
                     detection.values = [detection_element[0].split('_')[-1]]
                     detection.poses = []
                     detection.objects = [' '.join(detection_element[0].split('_')[:-1])]
@@ -412,9 +417,11 @@ class StreetSignDetector:
             if not type(detection) is PerceptionInfo or not detection or not detection.objects:
                 return None
         except Exception as e:
-            print("detection: ", detection)
-            print("type of detection: ", type(detection))
-            traceback.print_exc()
+            if self.debug:
+                print("detection: ", detection)
+                print("type of detection: ", type(detection)) 
+                traceback.print_exc()
+            pass
             
 
         # if detection actually has a value and is of type PerceptionInfo
