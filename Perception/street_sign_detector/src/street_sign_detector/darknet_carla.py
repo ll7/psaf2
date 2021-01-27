@@ -8,6 +8,7 @@ import time
 import traceback
 import sys
 import argparse
+import pathlib
 
 from PIL import Image
 
