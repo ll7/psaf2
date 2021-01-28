@@ -1,6 +1,6 @@
 import io
 import rospy
-
+import xml.etree.ElementTree as ET
 from lxml import etree
 
 from opendrive2lanelet.opendriveparser.parser import parse_opendrive
@@ -45,6 +45,23 @@ class CommonroadMapProvider:
         writer.write_to_file("./commonroad_map.xml", OverwriteExistingFile.ALWAYS)
         rospy.loginfo("Commonroad-Map was created and stored.")
         self.commonroad_publisher.publish("./commonroad_map.xml")
+        
+        tree = ET.parse("./commonroad_map.xml")
+        root = tree.getroot()
+        for lanelet in root.findall("lanelet"):
+            counter = 0
+            for left, right in zip(lanelet.findall("leftBound"), lanelet.findall("rightBound")):
+                length = len(left)
+                for l_p, r_p in zip(left.findall("point"), right.findall(("point"))):
+                    if counter % 10 == 0 or counter == length - 1:
+                        pass
+                    else:
+                        left.remove(l_p)
+                        right.remove(r_p)
+                    counter += 1
+
+        tree.write("./commonroad_map_reduced.xml")
+        self.commonroad_publisher.publish("./commonroad_map_reduced.xml")
 
     
 if __name__ == "__main__":
