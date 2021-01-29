@@ -6,6 +6,7 @@ import rospy
 import sys
 from behavior_agent.agent_behaviours import Foo, Testbev
 from std_msgs.msg import Float64
+from nav_msgs.msg import Odometry
 
 def create_my_root():
     """
@@ -15,15 +16,19 @@ def create_my_root():
         :class:`~py_trees.behaviour.Behaviour`: the root of the tree
     """
     root = py_trees.composites.Parallel("Tutorial")
-
+    topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
     avoid_collisions = py_trees.composites.Selector("Avoid Collisions")
     moving = Foo("Moving")
     priorities = py_trees.composites.Selector("Priorities")
     idle = py_trees.behaviours.Running(name="Idle")
     movingfast = Testbev("movingfast")
-
-
+    topics = [{'name':"/carla/ego_vehicle/odometry", 'msg':Odometry, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+              {'name':"/carla/ego_vehicle/target_speed", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER} 
+                ]
+    for topic in topics:
+        topics2blackboard.add_child(py_trees_ros.subscribers.ToBlackboard(topic['name'],topic['name'], topic['msg'], {topic['name']: None}, clearing_policy=topic['clearing-policy']))
     root.add_child(avoid_collisions)
+    root.add_child(topics2blackboard)
     avoid_collisions.add_child(moving)
     avoid_collisions.add_child(movingfast)
     root.add_child(priorities)
