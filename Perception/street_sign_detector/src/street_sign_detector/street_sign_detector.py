@@ -30,6 +30,7 @@ class StreetSignDetector:
         
         # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
         self.minimal_object_size_for_detection = 50
+        self.extract_padding = 20
 
         # CAMERA RESOLUTIONS
         # TODO adjustable resolution in get_block_by_pixel()
@@ -80,7 +81,7 @@ class StreetSignDetector:
         self.perception_info_publisher = rospy.Publisher(
             "/psaf/{}/perception_info".format(self.role_name), PerceptionInfo, queue_size=1, latch=True)
 
-
+        
     def rgb_image_updated(self, data):
         try:
             self.rgb_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
@@ -95,6 +96,7 @@ class StreetSignDetector:
     def semantic_segmentation_image_updated(self, data):
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            self.semantic_segmentation_img = self.resize_semantic_segmentation_image(self.semantic_segmentation_img, self.rgb_img)
             if self.debug:
 #                cv2.imwrite(str(pathlib.Path(__file__).parent.absolute()) + '/semseg.png', img)
                 cv2.imshow('Semantic', self.semantic_segmentation_img)
@@ -131,6 +133,36 @@ class StreetSignDetector:
             raise e
 
 
+    def resize_semantic_segmentation_image(self, img_sem, img_rgb):
+        height_rgb, width_rgb, channels_rgb = img_rgb.shape
+        height_sem, width_sem, channels_sem = img_sem.shape
+        ratio_height = height_rgb / height_sem
+        ratio_width = width_rgb / width_sem
+		
+		# the relative difference between the heigth of the semantic segmentation camera and the height of the rgb camera is 
+		# smaller than the relative difference between the width
+        if ratio_height < ratio_width:
+			# apply the height of the rgb image to the semantic segmentation image
+            img_resized = cv2.resize(img_sem, (int(width_sem * ratio_height), int(height_sem * ratio_height)),
+                                     fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
+		# the relative difference between the width of the semantic segmentation camera and the width of the rgb camera is 
+		# smaller than the relative difference between the heigth
+        elif ratio_width < ratio_height:
+			# apply the width of the rgb image to the semantic segmentation image
+            img_resized = cv2.resize(img_sem, (int(width_sem * ratio_width), int(height_sem * ratio_width)),
+                                     fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
+        else:
+            img_resized = cv2.resize(img_sem, (width_rgb, height_rgb), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
+        height_resized, width_resized, channels_resized = img_resized.shape
+        new_img_sem = np.zeros((height_rgb, width_rgb, 3), np.uint8)
+        x_offset = int((width_rgb - width_resized) / 2)
+        y_offset = int((height_rgb - height_resized) / 2)
+		# put black bars on the top and the bottom of the semantic segmentation image (if ratio_width < ratio_height)
+		# or on the left and right side (if ratio_width < ratio_height)
+        new_img_sem[y_offset:y_offset + height_resized, x_offset:x_offset + width_resized] = img_resized
+        return new_img_sem
+        
+
     def detect_street_signs(self, img_rgb, img_sem):
         '''
         Searches for street signs in the semantic segmentation (img_sem)
@@ -141,6 +173,7 @@ class StreetSignDetector:
         :return: If possible, the detection as an instance of PerceptionInfo; None otherwise
         '''
 
+        img_sem = self.resize_semantic_segmentation_image(img_sem, img_rgb)
         height, width, channels = img_sem.shape
 
         street_sign_counter = 0
@@ -160,9 +193,8 @@ class StreetSignDetector:
                             img_sem[h, w] = self.semantic_replace_by_color
                             (street_sign_image, returned_img_sem) = self.get_block_by_pixel(img_rgb, img_sem, color_found, h, w, height, width, self.filename_prefix + str(street_sign_counter))
                             
-
                             # valid result?
-                            if not returned_img_sem is None: 
+                            if not returned_img_sem is None:
                                 img_sem = returned_img_sem
                                 if np.array_equal(color_found, self.semantic_street_signs_color):
                                     street_sign_counter += 1
@@ -218,7 +250,7 @@ class StreetSignDetector:
         current_pixels.append([h_current, w_current])
         img_sem[h_current, w_current, 2] = 0
         
-        # TODO adjustable threshold ? 
+        # TODO adjustable padding? 
         
 #        if self.debug:
 #            print("get_block_by_pixel, type of img_rgb and img_sem: ", type(img_rgb), type(img_sem))
@@ -277,7 +309,7 @@ class StreetSignDetector:
         new_width = max_width - min_width
 
         # create new image for the detected street sign
-        street_sign_image = np.zeros((new_height * 2 + 2, new_width * 2 + 2, 3), np.uint8)
+        street_sign_image = np.zeros((new_height+1, new_width+1, 3), np.uint8)
         street_sign_image[:, :] = (255, 255, 255)
 
         # TODO adjustable resolutions?
@@ -285,33 +317,33 @@ class StreetSignDetector:
         # map every pixel of the semantic segmentation image to a 2x2 part of the rgb image (because the rgb
         # resolution is two times the resolution of the semantic segmentation camera)
         for pixel in pixels:
-            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 0] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2), 0]
-            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 1] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2), 1]
-            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2, 2] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2), 0]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
+                (pixel[0]), (pixel[1]), 0]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
+                (pixel[0]), (pixel[1]), 1]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
+                (pixel[0]), (pixel[1]), 0]
 
-            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 0] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2 + 1), 2]
-            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 1] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2 + 1), 1]
-            street_sign_image[(pixel[0] - min_height) * 2, (pixel[1] - min_width) * 2 + 1, 2] = img_rgb[
-                (pixel[0] * 2), (pixel[1] * 2 + 1), 2]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
+                (pixel[0]), (pixel[1]), 2]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
+                (pixel[0]), (pixel[1]), 1]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
+                (pixel[0]), (pixel[1]), 2]
 
-            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 0] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2), 2]
-            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 1] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2), 1]
-            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2, 2] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2), 0]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
+                (pixel[0]), (pixel[1]), 2]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
+                (pixel[0]), (pixel[1]), 1]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
+                (pixel[0]), (pixel[1]), 0]
 
-            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 2] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 0]
-            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 1] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 1]
-            street_sign_image[(pixel[0] - min_height) * 2 + 1, (pixel[1] - min_width) * 2 + 1, 0] = img_rgb[
-                (pixel[0] * 2 + 1), (pixel[1] * 2 + 1), 2]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
+                (pixel[0]), (pixel[1]), 0]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
+                (pixel[0]), (pixel[1]), 1]
+            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
+                (pixel[0]), (pixel[1]), 2]
 
         rospy.loginfo("New street sign detected")
 
@@ -403,8 +435,7 @@ class StreetSignDetector:
 
         finally:
             return detection
-
-
+    
     def publish_detection(self, detection):
         '''
         Publish the detection to the relevant topic(s)
@@ -416,6 +447,9 @@ class StreetSignDetector:
         try:
             if not type(detection) is PerceptionInfo or not detection or not detection.objects:
                 return None
+            else:
+                if self.debug:
+                    print("detection: ", detection)
         except Exception as e:
             if self.debug:
                 print("detection: ", detection)
