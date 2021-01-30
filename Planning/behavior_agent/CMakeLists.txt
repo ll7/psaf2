@@ -9,12 +9,13 @@ roslaunch_add_file_check(launch)
 
 catkin_package(CATKIN_DEPENDS rospy)
 
-catkin_install_python(PROGRAMS src/behavior_agent/behavior_tree.py
-                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-catkin_install_python(PROGRAMS src/behavior_agent/__init__.py
-                        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-catkin_install_python(PROGRAMS src/behavior_agent/agent_behaviours.py
-                        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+catkin_install_python(
+        PROGRAMS 
+                src/behavior_agent/behavior_tree.py
+                src/behavior_agent/__init__.py
+        DESTINATION 
+                ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
-install(DIRECTORY launch/
-        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)
+
+install(DIRECTORY launch/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)

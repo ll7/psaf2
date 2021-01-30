@@ -1,38 +1,77 @@
 import functools
+import behavior_agent
 import py_trees
+from py_trees.behaviours import Running
 import py_trees_ros
 import py_trees.console as console
 import rospy
 import sys
-from behavior_agent.agent_behaviours import Foo, Testbev
-from std_msgs.msg import Float64
-from nav_msgs.msg import Odometry
+from behavior_agent import behaviours
+from py_trees.composites import Parallel, Selector, Sequence
+from py_trees.decorators import Inverter
 
-def create_my_root():
-    """
-    Create a basic tree and start a 'Topics2BB' work sequence that
-    takes the asynchronicity out of subscription.
-    Returns:
-        :class:`~py_trees.behaviour.Behaviour`: the root of the tree
-    """
-    root = py_trees.composites.Parallel("Tutorial")
-    topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
-    avoid_collisions = py_trees.composites.Selector("Avoid Collisions")
-    moving = Foo("Moving")
-    priorities = py_trees.composites.Selector("Priorities")
-    idle = py_trees.behaviours.Running(name="Idle")
-    movingfast = Testbev("movingfast")
-    topics = [{'name':"/carla/ego_vehicle/odometry", 'msg':Odometry, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
-              {'name':"/carla/ego_vehicle/target_speed", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER} 
-                ]
-    for topic in topics:
-        topics2blackboard.add_child(py_trees_ros.subscribers.ToBlackboard(topic['name'],topic['name'], topic['msg'], {topic['name']: None}, clearing_policy=topic['clearing-policy']))
-    root.add_child(avoid_collisions)
-    root.add_child(topics2blackboard)
-    avoid_collisions.add_child(moving)
-    avoid_collisions.add_child(movingfast)
-    root.add_child(priorities)
-    priorities.add_child(idle)
+def grow_a_tree(role_name):
+
+    root = Parallel("Root", children=[ 
+                                        behaviours.topics2blackboard.create_node(role_name),
+                                        Selector("Priorities", children=[
+                                            Inverter(Selector("Avoid Collisions", children=[
+                                                behaviours.avoid_collisions.NoObstacleAhead("No Obstacle Ahead?"),
+                                                Selector("Collision Avoidance Action", children=[
+                                                    behaviours.avoid_collisions.ReplanAroundObstacles("Replan around Obstacles"),
+                                                    behaviours.avoid_collisions.EmergencyBrake("Emergency Brake")
+                                                ])
+                                            ])),
+                                            Selector("Road Features", children=[
+                                                Sequence("Intersection", children=[
+                                                    behaviours.road_features.IntersectionAhead("Intersection Ahead"), 
+                                                    Sequence("Intersection Actions", children=[
+                                                        behaviours.intersection.Approach("Approach Intersection"),
+                                                        behaviours.intersection.Wait("Wait Intersection"),
+                                                        behaviours.intersection.Enter("Enter Intersection"),
+                                                        behaviours.intersection.Leave("Leave Intersection")
+                                                    ])
+                                                ]),
+                                                Sequence("Roundabout", children=[
+                                                    behaviours.road_features.RoundaboutAhead("Roundabout Ahead"),
+                                                    Sequence("Roundabout Actions", children=[
+                                                        behaviours.roundabout.Approach("Approach Roundabout"),
+                                                        behaviours.roundabout.Wait("Wait Roundabout"),
+                                                        behaviours.roundabout.Enter("Enter Roundabout"),
+                                                        behaviours.roundabout.Leave("Leave Roundabout")
+                                                    ])
+                                                ]),
+                                                Sequence("Stop", children=[
+                                                    behaviours.road_features.StopAhead("Stop Ahead"),
+                                                    Sequence("Stop Actions", children=[
+                                                        behaviours.stop.Approach("Approach Stop"),
+                                                        behaviours.roundabout.Approach("Wait Stop"),
+                                                        behaviours.roundabout.Approach("Leave Stop")
+                                                    ])  
+                                                ])
+
+                                            ]),
+                                            Selector("Laneswitching", children=[
+                                                Inverter(Selector("Overtaking", children=[
+                                                    py_trees.behaviours.Success("Not Slowed By Car in Front?"),
+                                                    Selector("Number of Lanes", children=[
+                                                        Sequence("Multi Lane", children=[
+                                                            py_trees.behaviours.Failure("Multi Lane?")
+                                                        ]),
+                                                        Sequence("Single Lane", children=[
+                                                            py_trees.behaviours.Failure("Single Lane with dotted Line?")
+                                                        ])
+                                                    ])
+                                                ])),
+                                                Sequence("Back to Right Lane", children=[
+                                                    py_trees.behaviours.Failure("Right Lane Available")
+                                                ])
+                                            ]),
+
+                                            py_trees.behaviours.Running(name="Idle")    
+                                        ])
+                                    ])
+   
     return root
 
 
@@ -46,7 +85,7 @@ def main():
     """
     rospy.init_node('behavior_tree', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
-    root = create_my_root()
+    root = grow_a_tree(role_name)
     behaviour_tree = py_trees_ros.trees.BehaviourTree(root)
     rospy.on_shutdown(functools.partial(shutdown, behaviour_tree))
     
