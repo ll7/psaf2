@@ -164,6 +164,9 @@ def main():
         blueprints_spawn = []
         transforms_spawn = []        
         transform = spawn_points.__getitem__(170)
+        transform.location.x = transform.location.x + 10
+        print(transform.location.x)
+        print(transform.location.y)
         blueprint = blueprints.__getitem__(1)
         if blueprint.has_attribute('color'):
             color = random.choice(blueprint.get_attribute('color').recommended_values)

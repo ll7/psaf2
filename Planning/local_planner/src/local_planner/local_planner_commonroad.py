@@ -78,14 +78,18 @@ class LocalPlanner():
         Control loop
         :return:
         """
-        r = rospy.Rate(2)
-        while not rospy.is_shutdown():
+        r = rospy.Rate(2000)
+        bool_calc_route = False
+        while not bool_calc_route:
+        #while not rospy.is_shutdown():            
             if self.global_path is not None:
+                print("calculating route")
                 self.calc_route()
-            try:
-                r.sleep()
-            except rospy.ROSInterruptException:
-                pass
+                bool_calc_route = True                
+        #   try:
+        #       r.sleep()
+        #   except rospy.ROSInterruptException:
+        #       pass
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -110,15 +114,22 @@ class LocalPlanner():
         d = np.hypot(dx, dy)
         target_idx = np.argmin(d)
         #print(self.global_path.poses[target_idx + 500])
+        print(self.current_speed)
+        #self.set_start_state(self.current_pos, self.current_orientation, current_speed)
+        self.set_start_state(self.current_pos, self.current_orientation, 50.0)
+        #self.set_goal_region(np.array([self.global_path.poses[target_idx + 1000].pose.position.x, self.global_path.poses[target_idx + 1000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+1000))
+        self.set_goal_region(np.array([self.global_path.poses[target_idx + 4000].pose.position.x, self.global_path.poses[target_idx + 4000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+3000))
 
-        self.set_start_state(self.current_pos, self.current_orientation, self.current_speed)
-        self.set_goal_region(np.array([self.global_path.poses[target_idx + 1000].pose.position.x, self.global_path.poses[target_idx + 1000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+1000))
-        self.create_planning_problem()
+        obstacles = []
+        obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0, 5.3, self.scenario.dt))
+        #obstacles.append(self.create_static_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0))
+        
+        self.create_planning_problem(obstacles)
         if self.initialize_planner:
             self.init_planner()
             self.initialize_planner = False
 
-        route = self.plan()
+        route = self.plan(obstacles)
         if route:
             path_msg = Path()
             path_msg.header.frame_id = "map"
@@ -132,7 +143,11 @@ class LocalPlanner():
                     pose.pose.position.y = state.position[1]
                     pose.pose.position.z = 0
                     path_msg.poses.append(pose)
+           
             self.local_path_pub.publish(path_msg)
+            print("!!")
+            print("Published path")
+            print("!!")
 
         print(f"Time taken: {time.time() -  start}")
 
@@ -163,7 +178,11 @@ class LocalPlanner():
         self.planning_problem_set.add_planning_problem(self.planning_problem)
         self.scenario = copy.deepcopy(self.org_scenario)
         if obstacles:
-            self.scenario.add_objects(obstacles)
+            for i, o in enumerate(obstacles):
+                print("added obstacle")
+                self.scenario.add_objects(o)
+           
+            
 
     def init_planner(self):
         self.planner = MotionPlanner.GreedyBestFirstSearch(self.scenario, self.planning_problem, self.automaton,
