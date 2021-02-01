@@ -1,3 +1,4 @@
+
 import functools
 import behavior_agent
 import py_trees
@@ -53,22 +54,39 @@ def grow_a_tree(role_name):
                                             ]),
                                             Selector("Laneswitching", children=[
                                                 Inverter(Selector("Overtaking", children=[
-                                                    py_trees.behaviours.Success("Not Slowed By Car in Front?"),
+                                                    behaviours.traffic_objects.NotSlowedByCarInFront("Not Slowed By Car in Front?"),
                                                     Selector("Number of Lanes", children=[
                                                         Sequence("Multi Lane", children=[
-                                                            py_trees.behaviours.Failure("Multi Lane?")
+                                                            behaviours.road_features.MultiLane("Multi Lane?"),
+                                                            behaviours.road_features.LeftLaneAvailable("Left Lane Available?"),
+                                                            behaviours.traffic_objects.WaitLeftLaneFree("Wait for Left Lane Free"),
+                                                            behaviours.maneuvers.SwitchLaneLeft("Switch Lane Left")
                                                         ]),
                                                         Sequence("Single Lane", children=[
-                                                            py_trees.behaviours.Failure("Single Lane with dotted Line?")
+                                                            behaviours.road_features.SingleLineDotted("Single Lane with dotted Line?"),
+                                                            behaviours.traffic_objects.WaitLeftLaneFree("Wait for Left Lane Free"),
+                                                            behaviours.maneuvers.SwitchLaneLeft("Switch Lane Left"),
+                                                            Selector("Driving on Left Side", children=[
+                                                                Sequence("Overtake", children=[
+                                                                    behaviours.traffic_objects.OvertakingPossible("Overtaking Possible?"),
+                                                                    behaviours.maneuvers.Overtake("Overtake"),
+                                                                    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+
+                                                                ]),
+                                                                behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+                                                            ])
                                                         ])
                                                     ])
                                                 ])),
                                                 Sequence("Back to Right Lane", children=[
-                                                    py_trees.behaviours.Failure("Right Lane Available")
+                                                    behaviours.road_features.RightLaneAvailable("Right Lane Available"),
+                                                    behaviours.traffic_objects.NotSlowedByCarInFrontRight("Not Slowed By Car in Front Right?"),
+                                                    behaviours.traffic_objects.WaitRightLaneFree("Wait for Right Lane Free"),
+                                                    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
                                                 ])
                                             ]),
 
-                                            py_trees.behaviours.Running(name="Idle")    
+                                            behaviours.maneuvers.Cruise("Cruise")   
                                         ])
                                     ])
    
