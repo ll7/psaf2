@@ -126,11 +126,11 @@ class LocalPlanner():
         self.ego_vehicle_objects = []
         self.ego_vehicle_objects = msg.objects       
         #for i,o in enumerate(msg.objects):
-            #print("Ego_Vehicle_Object_Received!")
-            #print("ID")
-            #print(o.id)
-            #print("Pose")
-            #print(o.pose)
+        #    print("Ego_Vehicle_Object_Received!")
+        #    print("ID")
+        #    print(o.id)
+        #    print("Pose")
+        #    print(o.pose)
 
     def calc_route(self):
         start = time.time()
@@ -145,11 +145,11 @@ class LocalPlanner():
         #self.set_start_state(self.current_pos, self.current_orientation, current_speed)
         self.set_start_state(self.current_pos, self.current_orientation, 50.0)
         #self.set_goal_region(np.array([self.global_path.poses[target_idx + 1000].pose.position.x, self.global_path.poses[target_idx + 1000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+1000))
-        self.set_goal_region(np.array([self.global_path.poses[target_idx + 4000].pose.position.x, self.global_path.poses[target_idx + 4000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+3000))
+        self.set_goal_region(np.array([self.global_path.poses[target_idx + 3000].pose.position.x, self.global_path.poses[target_idx + 3000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+3000))
 
         obstacles = []
         for i,o in enumerate(self.ego_vehicle_objects):
-            obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, o.pose.position.x, o.pose.position.y, 0.0, 0, 4.1, self.scenario.dt))
+            obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, o.pose.position.x, o.pose.position.y, calc_egocar_yaw(o.pose), 0, 4.1, self.scenario.dt))
         #obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0, 5.3, self.scenario.dt))
         #obstacles.append(self.create_static_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0))
         
