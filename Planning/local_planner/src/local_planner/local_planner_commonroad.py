@@ -34,6 +34,7 @@ from SMP.motion_planner.queue import PriorityQueue
 from std_msgs.msg import String
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped
+from derived_object_msgs.msg import ObjectArray
 
 from helper_functions import calc_egocar_yaw, calc_path_yaw
 
@@ -67,9 +68,15 @@ class LocalPlanner():
         self.initialize_planner = True
         self.global_path = None
 
+        self.got_objects = True
+        self.ego_vehicle_objects = []
+        
+
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.global_path_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path", Path, self.global_path_received)
+        self.ego_vehicle_objects_sub = rospy.Subscriber(f"carla/{self.role_name}/objects", ObjectArray, self.ego_vehicle_objects_received)
+        #self.objects_sub = rospy.Subscriber(f"carla/objects", ObjectArray, self.objects_received)
 
         self.local_path_pub = rospy.Publisher(f"/psaf/{self.role_name}/local_path", Path, queue_size=1, latch=True)
 
@@ -78,14 +85,16 @@ class LocalPlanner():
         Control loop
         :return:
         """
-        r = rospy.Rate(2000)
-        bool_calc_route = False
-        while not bool_calc_route:
-        #while not rospy.is_shutdown():            
-            if self.global_path is not None:
-                print("calculating route")
-                self.calc_route()
-                bool_calc_route = True                
+
+        r = rospy.Rate(2)        
+        ego_vehicle_objects_before = self.ego_vehicle_objects
+        while not rospy.is_shutdown():
+            if self.global_path is not None:  
+                if len(ego_vehicle_objects_before) != len(self.ego_vehicle_objects):
+                    print("calculating route")
+                    self.calc_route()
+                    ego_vehicle_objects_before = self.ego_vehicle_objects
+                        
         #   try:
         #       r.sleep()
         #   except rospy.ROSInterruptException:
@@ -105,6 +114,24 @@ class LocalPlanner():
         self.current_speed = np.sqrt(
             msg.twist.twist.linear.x ** 2 + msg.twist.twist.linear.y ** 2 + msg.twist.twist.linear.z ** 2)
 
+    #def objects_received(self, msg):        
+        #for i,o in enumerate(msg.objects):
+            #print ("Object_received!")
+            #print ("ID")
+            #print(o.id)
+            #print ("Pose")
+            #print(o.pose)
+
+    def ego_vehicle_objects_received(self, msg):
+        self.ego_vehicle_objects = []
+        self.ego_vehicle_objects = msg.objects       
+        #for i,o in enumerate(msg.objects):
+            #print("Ego_Vehicle_Object_Received!")
+            #print("ID")
+            #print(o.id)
+            #print("Pose")
+            #print(o.pose)
+
     def calc_route(self):
         start = time.time()
         px = [poses.pose.position.x for poses in self.global_path.poses]
@@ -121,7 +148,9 @@ class LocalPlanner():
         self.set_goal_region(np.array([self.global_path.poses[target_idx + 4000].pose.position.x, self.global_path.poses[target_idx + 4000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+3000))
 
         obstacles = []
-        obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0, 5.3, self.scenario.dt))
+        for i,o in enumerate(self.ego_vehicle_objects):
+            obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, o.pose.position.x, o.pose.position.y, 0.0, 0, 5.3, self.scenario.dt))
+        #obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0, 5.3, self.scenario.dt))
         #obstacles.append(self.create_static_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0))
         
         self.create_planning_problem(obstacles)
