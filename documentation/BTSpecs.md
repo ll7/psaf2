@@ -1,4 +1,7 @@
 # Behaviour Tree - Behaviours Specification
+**Conditions** never return _Running_ but only _Failure_ and _Success_.
+**Actions** should not return _Failure_ (only special cases), but only _Running_ for ongoing and _Success_ for finished.
+
 ## Collision Avoidance Subtree
 ******
 ******
@@ -15,6 +18,10 @@ Trigger function for local replaning, set timeout with respect to information pu
 
 **OnTerminate:** When this behaviour is termianted by higher node, cancel the planning (or at least do not publish the result).
 
+## Road Features Subtree
+***
+The node that percepts the road features should take care that not more than one (and only the closest) feature should be published. This could be done via the global plan (offline planning of a sequence of road features).
+
 ## Road Features Subtree - Intersection
 ******
 ******
@@ -25,9 +32,10 @@ Read the information from a topic from Perception.
 ******
 
 ### _Action:_ Approach Intersection 
-Slow down and stop at the traffic lights/marker.
+Slow down and stop at the traffic lights/marker. Choose and move to the required lane.
+Activate turning signal.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If ongoing, return _Running_, return _Success_ after car has stopped. 
 
 **OnTerminate:** Cancel this action.
 
@@ -35,15 +43,17 @@ Slow down and stop at the traffic lights/marker.
 ### _Action:_ Wait 
 Wait for the interscection to be free/traffic lights to become green.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If not free to go, return _Running_, otherwise _Success_. 
 
 **OnTerminate:** Cancel this action.
 
 ******
 ### _Action:_ Enter Intersection 
-Enter Intersection.
+Enter Intersection. If required, stop again (e.g. turn left).
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**Initialize:** Set speed.
+
+**OnUpdate:** Return _Success_ if free to go without stopping again, return _Running_ if car still might have to stop (e.g. turn left). 
 
 **OnTerminate:** Cancel this action.
 
@@ -51,7 +61,7 @@ Enter Intersection.
 ### _Action:_ Leave Intersection 
 Leave Intersection.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If still in intersection, return _Running_, otherwise _Success_ (when back to other lanelet) and set speed to speed limit. 
 
 **OnTerminate:** Cancel this action.
 
@@ -61,13 +71,13 @@ Leave Intersection.
 ### _Condition:_ Roundabout Ahead
 Read the information from a topic from Perception.
 
-**OnUpdate:** Return _Success_ if intersection ahead, _Failure_ otherwise.
+**OnUpdate:** Return _Success_ if roundabout ahead, _Failure_ otherwise.
 ******
 
 ### _Action:_ Approach Roundabout 
-Slow down and stop at the roundabout entrance.
+Slow down and stop at the roundabout entrance. Choose lane.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If ongoing, return _Running_, return _Success_ after stopping. 
 
 **OnTerminate:** Cancel this action.
 
@@ -75,7 +85,7 @@ Slow down and stop at the roundabout entrance.
 ### _Action:_ Wait 
 Wait for the lane in Roundabout to be free.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If not free to go, return _Running_, otherwise _Success_. 
 
 **OnTerminate:** Cancel this action.
 
@@ -83,7 +93,9 @@ Wait for the lane in Roundabout to be free.
 ### _Action:_ Enter 
 Enter Roundabout.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**Initialize:** Set speed.
+
+**OnUpdate:** If ongoing, return _Running_, otherwise _Success_. 
 
 **OnTerminate:** Cancel this action.
 
@@ -91,7 +103,7 @@ Enter Roundabout.
 ### _Action:_ Leave 
 Leave Roundabout. Check for lane switch that needs to be done.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If still in Roundabout, return _Running_, otherwise _Success_ (when back to other lanelet) and set speed to speed limit. 
 
 **OnTerminate:** Cancel this action.
 
@@ -107,7 +119,7 @@ Read the information from a topic from Perception. (Stop means traffic ligths, z
 ### _Action:_ Approach 
 Slow down and stop at the marker.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If ongoing, return _Running_, otherwise _Success_. 
 
 **OnTerminate:** Cancel this action.
 
@@ -115,15 +127,15 @@ Slow down and stop at the marker.
 ### _Action:_ Wait 
 Wait for go.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If ongoing, return _Running_, if free return _Success_ and set speed. 
 
 **OnTerminate:** Cancel this action.
 
 ******
 ### _Action:_ Go 
-Continue.
+Continue and pass obstacle.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** If ongoing, return _Running_, otherwise _Success_ (after car has passed stop). 
 
 **OnTerminate:** Cancel this action.
 
@@ -131,7 +143,7 @@ Continue.
 ***
 ***
 ### _Condition:_ Not slowed down by car in front
-There should be a function/node that detects cars in front. It should write the information to a topic and this behaviour should query that topic. Additional information (e.g. car speed) should also be published in the topic (and written to the blackboard).
+There should be a function/node (see ACC) that detects cars in front. It should write the information to a topic and this behaviour should query that topic. Additional information (e.g. car speed) should also be published in the topic (and written to the blackboard).
 
 **OnUpdate:** Return _Success_ if no slow car ahead, _Failure_ otherwise.
 
@@ -150,15 +162,18 @@ There should be a function/node that detects cars in front. It should write the 
 
 ***
 ### _Action_: Wait for left lane free
+Should have timeout.
 
-**OnUpdate:**  If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**Initialize:** Set timeout.
+
+**OnUpdate:**  If ongoing, return _Running_, if lane free return _Success_, if timeout return _Failure_. 
 
 **OnTerminate:** Cancel this action.
 
 ***
 ### _Action_: Switch to lane left
 
-**OnUpdate:**  If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:**  If ongoing, return _Running_, return _Success_ after finishing. 
 
 **OnTerminate:** Cancel this action.
 
@@ -171,29 +186,16 @@ There should be a function/node that detects cars in front. It should write the 
 **OnUpdate:** Return _Success_ if Single-line with dotted line, _Failure_ otherwise.
 
 ***
-### _Action_: Wait for left lane free
-
-**OnUpdate:**  If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
-
-**OnTerminate:** Cancel this action.
-
-***
-### _Action_: Switch to lane left
-
-**OnUpdate:**  If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
-
-**OnTerminate:** Cancel this action.
-
-***
 ### _Condition:_ Overtaking possible
-Check if overtaking is possible (cars on other lane).
+Check if overtaking is possible (cars on other lane). In particular check cars ahead of the car to overtake.
 
 **OnUpdate:** Return _Success_ if possible, _Failure_ otherwise.
 
 ***
 ### _Action_: Overtake
+Accelerate, overtake car until there is space on the right lane.
 
-**OnUpdate:**  If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:**  If ongoing, return _Running_, return _Success_ if there is free space. 
 
 **OnTerminate:** Cancel this action.
 
@@ -214,8 +216,8 @@ Go back to right lane.
 **OnUpdate:** Return _Success_ if right lane available, _Failure_ otherwise.
 
 *** 
-### _Condition:_ Not slowed down by car in front
-There should be a function/node that detects cars in front. It should write the information to a topic and this behaviour should query that topic. Additional information (e.g. car speed) should also be published in the topic (and written to the blackboard).
+### _Condition:_ Not slowed down by car in front right
+There should be a function/node that detects cars in front (right). It should write the information to a topic and this behaviour should query that topic. Additional information (e.g. car speed) should also be published in the topic (and written to the blackboard).
 
 **OnUpdate:** Return _Success_ if no slow car ahead, _Failure_ otherwise.
 
@@ -226,19 +228,11 @@ There should be a function/node that detects cars in front. It should write the 
 
 **OnTerminate:** Cancel this action.
 
-***
-### _Action_: switch to lane right 
-
-**OnUpdate:**  If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
-
-**OnTerminate:** Cancel this action.
-
-
 ## Cruise
 ******
 ***
 ### _Action:_ Cruising.
 
-**OnUpdate:** If ongoing, return _Running_, otherwise _Failure_ or _Success_. 
+**OnUpdate:** Always return _Running_. Set ACC.
 
 **OnTerminate:** Cancel this action.
