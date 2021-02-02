@@ -164,7 +164,7 @@ def main():
         blueprints_spawn = []
         transforms_spawn = []        
         transform = spawn_points.__getitem__(170)
-        transform.location.x = transform.location.x + 10
+        transform.location.x = transform.location.x
         print(transform.location.x)
         print(transform.location.y)
         blueprint = blueprints.__getitem__(1)
@@ -185,6 +185,32 @@ def main():
         batch.append(SpawnActor(blueprint, transform)
             .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
             .then(SetVehicleLightState(FutureActor, light_state)))
+
+        # transform = spawn_points.__getitem__(170)
+        # transform.location.x = transform.location.x -55
+        # print(transform.location.x)
+        # print(transform.location.y)
+        # blueprint = blueprints.__getitem__(1)
+        # if blueprint.has_attribute('color'):
+        #     color = random.choice(blueprint.get_attribute('color').recommended_values)
+        #     blueprint.set_attribute('color', color)
+        # if blueprint.has_attribute('driver_id'):
+        #     driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
+        #     blueprint.set_attribute('driver_id', driver_id)
+        # blueprint.set_attribute('role_name', 'autopilot')
+        # light_state = vls.NONE
+        # if args.car_lights_on:
+        #     light_state = vls.Position | vls.LowBeam | vls.LowBeam
+        #
+        # # spawn the cars and set their autopilot and light state all together
+        # blueprints_spawn.append(blueprint)
+        # transforms_spawn.append(transform)
+        # batch.append(SpawnActor(blueprint, transform)
+        #     .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
+        #     .then(SetVehicleLightState(FutureActor, light_state)))
+        
+        
+        
         
         for response in client.apply_batch_sync(batch, synchronous_master):
             if response.error:

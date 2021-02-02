@@ -30,6 +30,7 @@ from commonroad_dc.boundary import boundary
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_checker, \
     create_collision_object
 from SMP.motion_planner.queue import PriorityQueue
+from SMP.motion_planner.utility import create_trajectory_from_list_states
 
 from std_msgs.msg import String
 from nav_msgs.msg import Path, Odometry
@@ -40,13 +41,14 @@ from helper_functions import calc_egocar_yaw, calc_path_yaw
 
 PLOT_CONFIG = StudentScriptPlotConfig(DO_PLOT=False)
 PATH_SCENARIO = "./commonroad_map_reduced.xml"
-PATH_MOTION_PRIMITIVES = 'V_10.0_10.0_Vstep_0_SA_-0.2_0.2_SAstep_0.4_T_0.5_Model_BMW320i.xml'
+PATH_MOTION_PRIMITIVES = "V_9.0_9.0_Vstep_0_SA_-0.2_0.2_SAstep_0.2_T_0.5_Model_BMW_320i.xml" #'V_10.0_10.0_Vstep_0_SA_-0.2_0.2_SAstep_0.4_T_0.5_Model_BMW320i.xml' #'V_0.0_20.0_Vstep_4.0_SA_-1.066_1.066_SAstep_0.18_T_0.5_Model_BMW_320i.xml'
 
-
+# Literatur
 # evtl: . Magdici and M. Althoff, “Fail-safe motion planning of autonomousvehicles,” inProc. of the 19th International IEEE Conference onIntelligent Transportation Systems, 2016, pp. 452–458.
 # https://mediatum.ub.tum.de/doc/1546126/
 # https://mediatum.ub.tum.de/doc/1379612/1379612.pdf
 # https://commonroad.in.tum.de/forum/t/desired-usage-of-the-route-planner/332/2
+# https://mediatum.ub.tum.de/doc/1379638/776321.pdf
 
 class LocalPlanner():
 
@@ -70,35 +72,30 @@ class LocalPlanner():
 
         self.got_objects = True
         self.ego_vehicle_objects = []
+        self.obs_counter = 0
         
 
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.global_path_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path", Path, self.global_path_received)
         self.ego_vehicle_objects_sub = rospy.Subscriber(f"carla/{self.role_name}/objects", ObjectArray, self.ego_vehicle_objects_received)
-        #self.objects_sub = rospy.Subscriber(f"carla/objects", ObjectArray, self.objects_received)
 
         self.local_path_pub = rospy.Publisher(f"/psaf/{self.role_name}/local_path", Path, queue_size=1, latch=True)
 
     def run(self):
         """
-        Control loop
+        Control loop, calc local path every second.
         :return:
         """
-
-        r = rospy.Rate(2)        
+        r = rospy.Rate(2)
         ego_vehicle_objects_before = self.ego_vehicle_objects
         while not rospy.is_shutdown():
-            if self.global_path is not None:  
-                if len(ego_vehicle_objects_before) != len(self.ego_vehicle_objects):
-                    print("calculating route")
-                    self.calc_route()
-                    ego_vehicle_objects_before = self.ego_vehicle_objects
-                        
-        #   try:
-        #       r.sleep()
-        #   except rospy.ROSInterruptException:
-        #       pass
+            if self.global_path is not None:
+                self.calc_route()
+            try:
+                r.sleep()
+            except rospy.ROSInterruptException:
+                pass
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -111,74 +108,59 @@ class LocalPlanner():
     def odometry_received(self, msg):
         self.current_pos = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
         self.current_orientation = calc_egocar_yaw(msg.pose.pose)
-        self.current_speed = np.sqrt(
-            msg.twist.twist.linear.x ** 2 + msg.twist.twist.linear.y ** 2 + msg.twist.twist.linear.z ** 2)
-
-    #def objects_received(self, msg):        
-        #for i,o in enumerate(msg.objects):
-            #print ("Object_received!")
-            #print ("ID")
-            #print(o.id)
-            #print ("Pose")
-            #print(o.pose)
 
     def ego_vehicle_objects_received(self, msg):
         self.ego_vehicle_objects = []
-        self.ego_vehicle_objects = msg.objects       
-        #for i,o in enumerate(msg.objects):
-        #    print("Ego_Vehicle_Object_Received!")
-        #    print("ID")
-        #    print(o.id)
-        #    print("Pose")
-        #    print(o.pose)
+        self.ego_vehicle_objects = msg.objects
 
     def calc_route(self):
         start = time.time()
+
+        # get index of next point on route
         px = [poses.pose.position.x for poses in self.global_path.poses]
         py = [poses.pose.position.y for poses in self.global_path.poses]
         dx = [self.current_pos[0] - icx for icx in px]
         dy = [self.current_pos[1] - icy for icy in py]
         d = np.hypot(dx, dy)
         target_idx = np.argmin(d)
-        #print(self.global_path.poses[target_idx + 500])
-        print(self.current_speed)
-        #self.set_start_state(self.current_pos, self.current_orientation, current_speed)
-        self.set_start_state(self.current_pos, self.current_orientation, 50.0)
-        #self.set_goal_region(np.array([self.global_path.poses[target_idx + 1000].pose.position.x, self.global_path.poses[target_idx + 1000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+1000))
+
+        self.set_start_state(self.current_pos, self.current_orientation, 50 / 3.6)
         self.set_goal_region(np.array([self.global_path.poses[target_idx + 3000].pose.position.x, self.global_path.poses[target_idx + 3000].pose.position.y]), orientation=calc_path_yaw(self.global_path, target_idx+3000))
 
+        # add obstacles of carla
         obstacles = []
         for i,o in enumerate(self.ego_vehicle_objects):
-            obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, o.pose.position.x, o.pose.position.y, calc_egocar_yaw(o.pose), 0, 4.1, self.scenario.dt))
-        #obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0, 5.3, self.scenario.dt))
-        #obstacles.append(self.create_static_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0))
+            speed = np.sqrt( o.twist.linear.x ** 2 + o.twist.linear.y ** 2 + o.twist.linear.z ** 2) - 10/3.6
+            obstacles.append(self.create_dynamic_obstacle(self.org_scenario.generate_object_id(), 5, 2.5, o.pose.position.x, o.pose.position.y, calc_egocar_yaw(o.pose), 0, speed, self.scenario.dt))
         
         self.create_planning_problem(obstacles)
+
         if self.initialize_planner:
             self.init_planner()
             self.initialize_planner = False
 
+        # calc path and publish. If planning takes too long nothing is published.
         route = self.plan(obstacles)
         if route:
+            traj = create_trajectory_from_list_states(route)
             path_msg = Path()
             path_msg.header.frame_id = "map"
             path_msg.header.stamp = rospy.Time.now()
-            for states in route:
-                for state in states:
-                    pose = PoseStamped()
-                    pose.header.frame_id = "map"
-                    pose.header.stamp = rospy.Time.now()
-                    pose.pose.position.x = state.position[0]
-                    pose.pose.position.y = state.position[1]
-                    pose.pose.position.z = 0
-                    path_msg.poses.append(pose)
+            for state in traj.state_list:
+                pose = PoseStamped()
+                pose.header.frame_id = "map"
+                pose.header.stamp = rospy.Time.now()
+                pose.pose.position.x = state.position[0]
+                pose.pose.position.y = state.position[1]
+                pose.pose.position.z = 0
+                path_msg.poses.append(pose)
            
             self.local_path_pub.publish(path_msg)
-            print("!!")
-            print("Published path")
-            print("!!")
+            print("Published local path")
+        else:
+            print("No route calced")
 
-        print(f"Time taken: {time.time() -  start}")
+        print(f"Time for local path compution: {time.time() -  start}")
 
     def set_goal_region(self, position, orientation=None, velocity=0):
         """
@@ -190,7 +172,7 @@ class LocalPlanner():
         if orientation is None:
             orientation = AngleInterval(-np.pi, np.pi - 0.000001)
         else:
-            orientation = AngleInterval(np.clip(orientation - 0.4, -np.pi, np.pi), np.clip(orientation + 0.4, -np.pi, np.pi))
+            orientation = AngleInterval(np.clip(orientation - 0.1, -np.pi, np.pi), np.clip(orientation + 0.1, -np.pi, np.pi))
         velocity = Interval(0, 40/3.6)
         goal_state = State(position=Rectangle(2, 2, center=position), time_step=Interval(1, 200),
                            orientation=orientation, velocity=velocity)
@@ -210,8 +192,6 @@ class LocalPlanner():
             for i, o in enumerate(obstacles):
                 print("added obstacle")
                 self.scenario.add_objects(o)
-           
-            
 
     def init_planner(self):
         self.planner = MotionPlanner.GreedyBestFirstSearch(self.scenario, self.planning_problem, self.automaton,
@@ -221,16 +201,16 @@ class LocalPlanner():
                                                                                        method='aligned_triangulation',
                                                                                        axis=2)
 
-    # def cut_scenario(self, radius):
-    #     lanelets_to_keep = self.scenario.lanelet_network.lanelets_in_proximity(self.current_pos, radius)
-    #     lanelets_to_remove = []
-    #     new_network = LaneletNetwork()
-    #     for id, l in self.scenario.lanelet_network._lanelets.items():
-    #         if l not in lanelets_to_keep:
-    #             lanelets_to_remove.append(id)
-    #     for l in lanelets_to_remove:
-    #         del self.scenario.lanelet_network._lanelets[l]
-    #     self.scenario.lanelet_network.cleanup_lanelet_references()
+    def cut_scenario(self, radius):
+        lanelets_to_keep = self.scenario.lanelet_network.lanelets_in_proximity(self.current_pos, radius)
+        lanelets_to_remove = []
+        new_network = LaneletNetwork()
+        for id, l in self.scenario.lanelet_network._lanelets.items():
+            if l not in lanelets_to_keep:
+                lanelets_to_remove.append(id)
+        for l in lanelets_to_remove:
+            del self.scenario.lanelet_network._lanelets[l]
+        self.scenario.lanelet_network.cleanup_lanelet_references()
 
     def plot_scenario(self):
         plt.figure(figsize=(8, 8))
@@ -241,21 +221,12 @@ class LocalPlanner():
         plt.show()
         # close the figure to continue!
 
-        # for i in range(0, 41):
-        #     # uncomment to clear previous graph
-        #     # display.clear_output(wait=True)
-        #
-        #     plt.figure(figsize=(25, 10))
-        #     draw_object(self.scenario, draw_params={'time_begin': i})
-        #     draw_object(self.planning_problem_set)
-        #     plt.gca().set_aspect('equal')
-        #     plt.show()
 
     def plan(self, obstacles=None):
         # mostly same as SMP.motion_planner.search_algorithms.base_class.__init__()
         # reset planner, but keep the static collision_map
         # store input parameters
-
+        self.obs_counter = 0
         self.planner.scenario = self.scenario
         self.planner.planningProblem = self.planning_problem
         self.planner.automaton = self.automaton
@@ -309,7 +280,8 @@ class LocalPlanner():
         return path
 
     def create_static_obstacle(self, id, width, length, x, y, orientation, time_step):
-        static_obstacle_id = id
+        static_obstacle_id = id + self.obs_counter
+        self.obs_counter += 1
         static_obstacle_type = ObstacleType.PARKED_VEHICLE
         static_obstacle_shape = Rectangle(width, length)
         static_obstacle_initial_state = State(position=np.array([x, y]), orientation=orientation, time_step=time_step)
@@ -329,7 +301,8 @@ class LocalPlanner():
         dynamic_obstacle_trajectory = Trajectory(1, state_list)
         dynamic_obstacle_shape = Rectangle(width, length)
         dynamic_obstacle_prediction = TrajectoryPrediction(dynamic_obstacle_trajectory, dynamic_obstacle_shape)
-        dynamic_obstacle_id = id
+        dynamic_obstacle_id = id + self.obs_counter
+        self.obs_counter += 1
         dynamic_obstacle_type = ObstacleType.CAR
         dynamic_obstacle = DynamicObstacle(dynamic_obstacle_id, dynamic_obstacle_type, dynamic_obstacle_shape,
                                            dynamic_obstacle_initial_state, dynamic_obstacle_prediction)
