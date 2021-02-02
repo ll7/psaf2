@@ -149,7 +149,7 @@ class LocalPlanner():
 
         obstacles = []
         for i,o in enumerate(self.ego_vehicle_objects):
-            obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, o.pose.position.x, o.pose.position.y, 0.0, 0, 5.3, self.scenario.dt))
+            obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, o.pose.position.x, o.pose.position.y, 0.0, 0, 4.1, self.scenario.dt))
         #obstacles.append(self.create_dynamic_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0, 5.3, self.scenario.dt))
         #obstacles.append(self.create_static_obstacle(self.scenario.generate_object_id(), 3, 5, 20.0, -207.0, 0.0, 0))
         
