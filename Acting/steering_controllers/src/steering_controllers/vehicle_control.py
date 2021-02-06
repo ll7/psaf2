@@ -27,9 +27,15 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if not args_longitudinal:
             args_longitudinal = {'K_P': 0.25, 'K_D': 0.0, 'K_I': 0.1}
         if not args_lateral:
+<<<<<<< HEAD
             args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
         if not args_dist:
             args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
+=======
+            args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0}
+        if not args_dist:
+            args_dist = {'K_P': 0.05, 'K_D': 0.0, 'K_I': 0.01}
+>>>>>>> abstände
 
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
         self._lat_controller = StanleyLateralController(**args_lateral)
@@ -70,6 +76,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if dt == 0.0:
             dt = 0.000001
         control = CarlaEgoVehicleControl()
+<<<<<<< HEAD
 
         min_dist = 4
         if self._current_speed > min_dist*2:
@@ -87,6 +94,11 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
             throttle = dist
         self.pidpublisher.publish(throttle)
 
+=======
+        #throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
+        throttle = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
+        self.pidpublisher.publish(throttle)
+>>>>>>> abstände
         steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
         self._last_control_time = current_time
         if throttle >= 0.0:
