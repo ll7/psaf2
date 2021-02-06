@@ -76,6 +76,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if dt == 0.0:
             dt = 0.000001
         control = CarlaEgoVehicleControl()
+<<<<<<< HEAD
         min_dist = 4
         if self._current_speed > min_dist*2:
             self._target_distance = self._current_speed/2
@@ -92,6 +93,8 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
             throttle = dist
         self.pidpublisher.publish(throttle)
 
+=======
+>>>>>>> abstände
         #throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
         throttle = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
         self.pidpublisher.publish(throttle)
