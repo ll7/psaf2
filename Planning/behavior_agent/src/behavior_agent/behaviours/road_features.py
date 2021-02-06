@@ -138,3 +138,51 @@ class SingleLineDotted(py_trees.behaviour.Behaviour):
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
+class RightLaneAvailable(py_trees.behaviour.Behaviour):
+    def __init__(self, name):
+        super(RightLaneAvailable, self).__init__(name)
+
+    def setup(self, timeout):
+        self.Success = False
+        return True
+
+
+
+    def initialise(self):
+        self.blackboard = py_trees.blackboard.Blackboard()
+
+
+    def update(self):
+        if self.Success:
+            return py_trees.common.Status.SUCCESS
+        else:
+            return py_trees.common.Status.FAILURE
+
+        
+    def terminate(self, new_status):
+        self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
+class LeftLaneAvailable(py_trees.behaviour.Behaviour):
+    def __init__(self, name):
+        super(LeftLaneAvailable, self).__init__(name)
+
+    def setup(self, timeout):
+        self.Success = False
+        return True
+
+
+
+    def initialise(self):
+        self.blackboard = py_trees.blackboard.Blackboard()
+
+
+    def update(self):
+        if self.Success:
+            return py_trees.common.Status.SUCCESS
+        else:
+            return py_trees.common.Status.FAILURE
+
+        
+    def terminate(self, new_status):
+        self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))

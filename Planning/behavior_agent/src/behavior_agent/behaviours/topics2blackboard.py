@@ -15,8 +15,7 @@ def create_node(role_name):
             {'name':f"/carla/{role_name}/target_speed", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER}, 
             {'name':f"/psaf/{role_name}/obstacle", 'msg':String, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/distance", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER} 
-            
-        ]
+         ]
     topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
     for topic in topics:
         topics2blackboard.add_child(py_trees_ros.subscribers.ToBlackboard(  name=topic['name'],
