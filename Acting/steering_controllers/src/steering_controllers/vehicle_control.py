@@ -28,7 +28,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         self._target_speed = target_speed
 
         if not args_longitudinal:
-            args_longitudinal = {'K_P': 1.0, 'K_D': 0.0, 'K_I': 0.0}
+            args_longitudinal = {'K_P': 0.25, 'K_D': 0.0, 'K_I': 0.1}
         if not args_lateral:
             args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0}
 
@@ -51,6 +51,9 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         self.vehicle_control_publisher = rospy.Publisher(
             "/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
+        
+        self.pidpublisher = rospy.Publisher(
+            "/psaf/{}/debug/controller".format(role_name), Float64, queue_size=1)
 
         
     def run_step(self, target_speed, current_speed):
@@ -67,9 +70,14 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
         steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
         self._last_control_time = current_time
-        control.throttle = throttle
+        if throttle >= 0.0:
+            control.throttle = np.clip(throttle, 0.0, 1.0)
+            control.brake = 0.0
+        else:
+            control.brake = -np.clip(throttle, -1.0, 0.0)
+            control.throttle = 0.0
         control.steer = steering
-        control.brake = 0.0
+
         control.hand_brake = False
         control.manual_gear_shift = False
 
