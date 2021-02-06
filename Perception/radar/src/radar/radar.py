@@ -23,7 +23,9 @@ class Radar(object):  # pylint: disable=too-few-public-methods
     def radar_updated(self, msg):
         self.points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))
         dist = [p[0] for p in self.points]
-        print(min(dist))
+        if len(dist) > 0:
+            self._dist_publisher.publish(min(dist))
+        
 
 
     def run(self):
