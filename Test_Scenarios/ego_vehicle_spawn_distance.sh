@@ -5,7 +5,6 @@ sleep 3s
 gnome-terminal --execute bash -c "rviz; bash"
 sleep 2s
 gnome-terminal --execute bash -c "python scenario_overtaking.py; bash"
-sleep 15s
-gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 0.0; bash"
+
 
 
