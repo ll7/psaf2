@@ -5,18 +5,8 @@ sleep 5s
 gnome-terminal --execute bash -c "rviz; bash"
 sleep 2s
 gnome-terminal --execute bash -c "python scenario_overtaking.py; bash"
-<<<<<<< HEAD
-<<<<<<< HEAD
 sleep 1s
 gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 30.0"
-
-=======
->>>>>>> changed .sh
-=======
-sleep 1s
-gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 30.0"
-
->>>>>>> combined distance and speed_limit
 
 
 
