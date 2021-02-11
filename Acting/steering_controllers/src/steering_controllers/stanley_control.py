@@ -13,12 +13,13 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
     StanleyLateralController implements longitudinal control using a PID.
     """
 
-    def __init__(self, k=.5, Kp=1.0, L=2.9, max_steer=30.0):
+    def __init__(self, k=.5, Kp=1.0, L=2.9, max_steer=30.0, min_speed=10):
 
         self.k = k  # control gain
         self.Kp = Kp  # speed proportional gain
         self.L = L  # [m] Wheel base of vehicle
         self.max_steer = np.deg2rad(max_steer)
+        self.min_speed = min_speed 
         #self.targetpointpublisher = rospy.Publisher("/debug/stanley/targetpoint", PoseStamped, queue_size=1)
 
     def run_step(self, currentPath, currentPose, currentSpeed):
@@ -27,6 +28,9 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         theta_e = normalize_angle(calc_path_yaw(currentPath, current_target_idx) - calc_egocar_yaw(currentPose))
 
         # theta_d corrects the cross track error
+        
+        if currentSpeed < self.min_speed:
+            currentSpeed = self.min_speed
         theta_d = np.arctan2(self.k * error_front_axle, currentSpeed)
         # Steering control      
         delta = theta_e + theta_d
