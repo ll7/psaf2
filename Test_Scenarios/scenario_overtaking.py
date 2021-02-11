@@ -183,7 +183,7 @@ def main():
         blueprints_spawn.append(blueprint)
         transforms_spawn.append(transform)
         batch.append(SpawnActor(blueprint, transform)
-            #.then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
+            .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
             .then(SetVehicleLightState(FutureActor, light_state)))
 
         # transform = spawn_points.__getitem__(170)
