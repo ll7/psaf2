@@ -120,10 +120,10 @@
         {
             "type": "sensor.other.radar",
             "id": "front",
-            "x": 2.0, "y": 0.0, "z": 1.5, "roll": 0.0, "pitch": 0, "yaw": 0.0,
-            "horizontal_fov": 21.0,
-            "vertical_fov": 8.0,
-            "points_per_second": 1500,
+            "x": 2.0, "y": 0.0, "z": 0.5, "roll": 0.0, "pitch": 1.5, "yaw": 0.0,
+            "horizontal_fov": 35.0,
+            "vertical_fov": 3.0,
+            "points_per_second": 100,
             "range": 100.0
         },
         {
