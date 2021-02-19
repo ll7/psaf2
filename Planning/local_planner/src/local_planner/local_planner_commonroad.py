@@ -73,7 +73,6 @@ class LocalPlanner():
         self.got_objects = True
         self.ego_vehicle_objects = []
         self.obs_counter = 0
-        
 
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
