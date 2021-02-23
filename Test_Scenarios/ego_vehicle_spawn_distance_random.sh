@@ -6,6 +6,7 @@ gnome-terminal --execute bash -c "rviz"
 sleep 2s
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 gnome-terminal --execute bash -c "python scenario_all_random.py -n 200"
 sleep 1s
 gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 60.0"
@@ -17,6 +18,11 @@ gnome-terminal --execute bash -c "python scenario_all_random.py -n 200"
 sleep 1s
 gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 50.0"
 >>>>>>> combined distance and speed_limit
+=======
+gnome-terminal --execute bash -c "python scenario_all_random.py -n 30"
+sleep 1s
+gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 80.0"
+>>>>>>> cleaned code
 
 
 
