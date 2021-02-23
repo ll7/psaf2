@@ -42,14 +42,17 @@
     <arg name="spawn_ego_vehicle" value="$(arg spawn_ego_vehicle)" />
   </include>
   
+  <!--
   <include file="$(find carla_manual_control)/launch/carla_manual_control.launch">
     <arg name='role_name' value='$(arg role_name)'/>
   </include>
+  -->
 
   <!-- Add Launchfiles here -->
   
   <!-- Perception-->
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
+  <include file="$(find traffic_features)/launch/traffic_features.launch"> </include>
   
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
@@ -59,6 +62,8 @@
   <!-- Acting-->
   <include file="$(find steering_controllers)/launch/vehicle_control.launch">  </include>
   
+
+  <!-- <node type="rviz" name="rviz" pkg="rviz" /> -->
 
 
   
