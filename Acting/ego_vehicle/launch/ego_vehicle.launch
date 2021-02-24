@@ -50,10 +50,12 @@
   
   <!-- Perception-->
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
+  <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
   
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
   <include file="$(find global_planner)/launch/global_planner_target_publisher.launch">  </include>
+  <include file="$(find behavior_agent)/launch/behavior_agent.launch">  </include>
 
   <!-- Acting-->
   <include file="$(find steering_controllers)/launch/vehicle_control.launch">  </include>
