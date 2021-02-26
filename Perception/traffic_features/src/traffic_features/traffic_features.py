@@ -51,11 +51,10 @@ class TrafficFeatures:
             return
         for lanelet_id in possible_ids[0]:
             if lanelet_id in self.lanelet_ids:
-                if self.last_non_intersection_lanelet_id == self.lanelet_ids[self.lanelet_ids.index(lanelet_id) - 1]:
+                lane = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
+                if len(lane.predecessor) == 1 and len(lane.successor) == 1:
                     distance = np.inf
                 else:
-                    self.last_non_intersection_lanelet_id = lanelet_id
-                    lane = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
                     distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
                     idx = np.argmin(distances_to_center_vertices)
                     distance = self.lanelet_lengths[lanelet_id][-1] - self.lanelet_lengths[lanelet_id][idx]
