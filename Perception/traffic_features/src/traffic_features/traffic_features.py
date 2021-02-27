@@ -58,7 +58,6 @@ class TrafficFeatures:
                     distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
                     idx = np.argmin(distances_to_center_vertices)
                     distance = self.lanelet_lengths[lanelet_id][-1] - self.lanelet_lengths[lanelet_id][idx]
-                print(distance)
                 self.distance_pub.publish(distance)
                 return
 
