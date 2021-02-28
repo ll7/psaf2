@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="radar" type="radar.py" name="radar" output="screen">
+  </node>
+
+</launch>
+
