@@ -14,7 +14,7 @@ def create_node(role_name):
             {'name':f"/carla/{role_name}/odometry", 'msg':Odometry, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/carla/{role_name}/target_speed", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER}, 
             {'name':f"/psaf/{role_name}/obstacle", 'msg':String, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
-            {'name':f"/psaf/{role_name}/distance", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER} 
+            {'name':f"/psaf/{role_name}/distance_next_intersection", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER}
          ]
     topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
     for topic in topics:
