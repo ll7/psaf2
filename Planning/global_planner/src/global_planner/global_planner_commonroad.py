@@ -2,6 +2,7 @@ import rospy
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import json
 
 from commonroad.common.file_reader import CommonRoadFileReader
 from commonroad.visualization.draw_dispatch_cr import draw_object
@@ -35,7 +36,8 @@ class GlobalPlanner:
         self.inital_pose_sub = rospy.Subscriber(f"/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
 
         self.path_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path", Path, queue_size=1, latch=True)
-        self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, queue_size=1, latch=True)
+        self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets,
+                                           queue_size=1, latch=True)
 
         self.scenario = None
         self.planning_problem_Set = None
@@ -43,12 +45,11 @@ class GlobalPlanner:
         self.current_orientation = None
 
     def map_received(self, msg):
-        self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open() 
+        self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
         while self.scenario is None or self.current_orientation is None:
             rospy.sleep(0.05)
         self.create_global_plan()
-        
 
     def target_received(self, msg):
         print("Target Received")
@@ -58,17 +59,13 @@ class GlobalPlanner:
         print("New Start")
         while self.scenario is None or self.current_orientation is None:
             rospy.sleep(0.05)
-        rospy.sleep(0.1)
+        rospy.sleep(0.2)
         self.create_global_plan()
 
     def odometry_received(self, msg):
         self.current_pos = (msg.pose.pose.position.x, msg.pose.pose.position.y)
         self.current_orientation = msg.pose.pose
-        # if self.scenario is None:
-        #     return
-        # else:     
-        #     self.create_global_plan()
-    
+
     def create_global_plan(self):
         print("Path creation started")
         goal_state = State(position=Rectangle(2, 2, center=np.array([10, 50])), time_step=Interval(1, 200), velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2))
@@ -76,12 +73,12 @@ class GlobalPlanner:
 
         yaw = calc_egocar_yaw(self.current_orientation)
         start_state = State(position=np.array([self.current_pos[0], self.current_pos[1]]), time_step=1, velocity=0.0, yaw_rate=0.0, slip_angle=0.0, orientation=yaw)
-        
+
         planning_problem = PlanningProblem(10000, start_state, goal_region)
         # self.planning_problem_set.add_planning_problem(planning_problem)
 
         # instantiate a route planner
-        
+
         route_planner = RoutePlanner(self.scenario, planning_problem, backend=RoutePlanner.Backend.NETWORKX_REVERSED)
 
         # plan routes, and save the found routes in a route candidate holder
@@ -90,11 +87,11 @@ class GlobalPlanner:
         # we retrieve the first route in the list
         # this is equivalent to: route = list_routes[0]
         route = candidate_holder.retrieve_first_route()
-        #print(f"Time: {time.time() -start}")
+        # print(f"Time: {time.time() -start}")
 
         lanelet_msg = GlobalPathLanelets()
         lanelet_msg.lanelet_ids = route.list_ids_lanelets
-        lanelet_msg.adjacent_lanelet_ids = route.list_sections
+        lanelet_msg.adjacent_lanelet_ids = json.dumps(route.retrieve_route_sections())
         self.lanelet_pub.publish(lanelet_msg)
 
         point_route = route.reference_path
@@ -119,7 +116,7 @@ class GlobalPlanner:
         # plt.clf()
         # plt.ion()
         # # determine the figure size for better visualization
-        # plot_limits = get_plot_limits_from_routes(route)        
+        # plot_limits = get_plot_limits_from_routes(route)
         # size_x = 6
         # ratio_x_y = (plot_limits[1] - plot_limits[0]) / (plot_limits[3] - plot_limits[2])
         # plt.gca().axis('equal')
@@ -138,7 +135,7 @@ class GlobalPlanner:
         # find last point before start position
         for i, point in enumerate(route):
             distance, _ = self.compute_magnitude_angle(point, self.current_pos, self.current_orientation.orientation)
-            
+
             if min_distance_start is not None:
                 if distance < min_distance_start:
                     max_index = i
@@ -156,7 +153,7 @@ class GlobalPlanner:
         #TODO: MAKE DYNAMIC
         for i, point in enumerate(reversed(route)):
             distance, _ = self.compute_magnitude_angle(point, np.array([10, 50]), self.current_orientation.orientation)
-            
+
             if min_distance_end is not None:
                 if distance < min_distance_end:
                     min_index = i

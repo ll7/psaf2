@@ -15,6 +15,11 @@ add_message_files(
   GlobalPathLanelets.msg
 )
 
+add_service_files(
+  DIRECTORY srv
+  FILES
+  UpdateLocalPath.srv
+)
 generate_messages(
   DEPENDENCIES
   std_msgs

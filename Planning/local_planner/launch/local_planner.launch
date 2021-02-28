@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="local_planner" type="local_planner_commonroad.py" name="local_planner" output="screen">
+  </node>
+
+</launch>
+

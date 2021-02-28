@@ -1,6 +1,6 @@
 from commonroad.scenario.lanelet import Lanelet
 import rospy
-
+import json
 import numpy as np
 
 from std_msgs.msg import Float64, String
@@ -35,22 +35,26 @@ class TrafficFeatures:
             self.update_lanelet_lengths()
 
     def lanelets_received(self, msg):
-        self.lanelet_ids = msg.lanelet_ids + msg.adjacent_lanelet_ids
+        self.lanelets_on_route = msg.lanelet_ids
+        self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
+        self.adjacent_lanelets_flattened = [item for sublist in self.adjacent_lanelets for item in sublist]
         if self.scenario and self.lanelet_ids:
             self.update_lanelet_lengths()
 
     def update_lanelet_lengths(self):
-        for lanelet_id in self.lanelet_ids:
+        for lanelet_id in self.adjacent_lanelets_flattened:
             lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
             self.lanelet_lengths[lanelet_id] = lanelet.distance
 
     def update_distance(self):
+        self.distance_pub.publish(np.inf)
+        return
         possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_pos])
         if len(possible_ids) == 0:
             print("Car is not on street. Abort.")
             return
         for lanelet_id in possible_ids[0]:
-            if lanelet_id in self.lanelet_ids:
+            if lanelet_id in self.adjacent_lanelets_flattened:
                 lane = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
                 if len(lane.predecessor) == 1 and len(lane.successor) == 1:
                     distance = np.inf
