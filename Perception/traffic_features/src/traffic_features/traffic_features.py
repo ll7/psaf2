@@ -16,7 +16,7 @@ class TrafficFeatures:
         self.scenario = None
         self.planning_problem_set = None
         self.current_pos = np.zeros(2)
-        self.lanelet_ids = []
+        self.adjacent_lanelets_flattened = []
         self.lanelet_lengths = {}
         self.last_non_intersection_lanelet_id = None
         
@@ -31,14 +31,14 @@ class TrafficFeatures:
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
-        if self.scenario and self.lanelet_ids:
+        if self.scenario and self.adjacent_lanelets_flattened:
             self.update_lanelet_lengths()
 
     def lanelets_received(self, msg):
         self.lanelets_on_route = msg.lanelet_ids
         self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
         self.adjacent_lanelets_flattened = [item for sublist in self.adjacent_lanelets for item in sublist]
-        if self.scenario and self.lanelet_ids:
+        if self.scenario and self.adjacent_lanelets_flattened:
             self.update_lanelet_lengths()
 
     def update_lanelet_lengths(self):
@@ -47,8 +47,6 @@ class TrafficFeatures:
             self.lanelet_lengths[lanelet_id] = lanelet.distance
 
     def update_distance(self):
-        self.distance_pub.publish(np.inf)
-        return
         possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_pos])
         if len(possible_ids) == 0:
             print("Car is not on street. Abort.")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import rospy
 import py_trees
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
@@ -28,7 +28,8 @@ class IntersectionAhead(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.FAILURE
         else:
             self.dist = bb.data
-        if self.dist < 20:
+        rospy.loginfo(self.dist)
+        if self.dist < 30:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
