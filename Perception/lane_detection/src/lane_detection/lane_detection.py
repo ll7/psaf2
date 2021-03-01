@@ -2,6 +2,7 @@ import math
 import numpy as np
 import rospy
 from sensor_msgs.msg import Image
+from std_msgs.msg import Int32
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
@@ -21,7 +22,7 @@ class LaneDetector(object):
             self._roadmark_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
             self._semanticseg_subscriber = rospy.Subscriber("/carla/{}/semantic_segmentation_front/image".format(role_name), Image, self.semanticseg_updated)
             self.roadmark_publisher = rospy.Publisher("/psaf/{}/roadmark".format(role_name), Image, queue_size=1)   
-            self.stopline_publisher = rospy.Publisher("/psaf/{}/stopline_distance".format(role_name), int, queue_size=1) 
+            self.stopline_publisher = rospy.Publisher("/psaf/{}/stopline_distance".format(role_name), Int32, queue_size=1) 
             self.cluster_bandwidth = 0.1
             self.cluster_resolution = 10000
         

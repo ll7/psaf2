@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>lane-detection</name>
+  <name>lane_detection</name>
   <version>0.0.0</version>
   <description>The carla scripted package by us</description>
   <maintainer email="carla.simulator@gmail.com">We</maintainer>
