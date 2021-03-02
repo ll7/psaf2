@@ -17,23 +17,18 @@ class IntersectionAhead(py_trees.behaviour.Behaviour):
         self.lastdist = 0.0
         return True
 
-
-
     def initialise(self):
         self.dist = 0
 
 
     def update(self):
         # TODO Write data field to blackboard directly
-        bb = self.blackboard.get("/psaf/ego_vehicle/distance")
+        bb = self.blackboard.get("/psaf/ego_vehicle/distance_next_intersection")
         if bb is None:
             return py_trees.common.Status.FAILURE
         else:
             self.dist = bb.data
-        if self.lastdist < self.dist:
-            self.currentstart = self.dist
-        self.lastdist = self.dist
-        if self.currentstart > 30.0 and self.dist < 20.0:
+        if self.dist < 20:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE

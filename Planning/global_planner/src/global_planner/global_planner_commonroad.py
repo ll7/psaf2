@@ -21,6 +21,7 @@ from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
+from custom_carla_msgs.msg import GlobalPathLanelets
 from tf.transformations import euler_from_quaternion
 
 
@@ -34,6 +35,7 @@ class GlobalPlanner:
         self.inital_pose_sub = rospy.Subscriber(f"/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
 
         self.path_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path", Path, queue_size=1, latch=True)
+        self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, queue_size=1, latch=True)
 
         self.scenario = None
         self.planning_problem_Set = None
@@ -89,6 +91,11 @@ class GlobalPlanner:
         # this is equivalent to: route = list_routes[0]
         route = candidate_holder.retrieve_first_route()
         #print(f"Time: {time.time() -start}")
+
+        lanelet_msg = GlobalPathLanelets()
+        lanelet_msg.lanelet_ids = route.list_ids_lanelets
+        lanelet_msg.adjacent_lanelet_ids = route.list_sections
+        self.lanelet_pub.publish(lanelet_msg)
 
         point_route = route.reference_path
         point_route = self.sanitize_route(point_route)
