@@ -1,11 +1,15 @@
 import py_trees
+import rospy
 
+from custom_carla_msgs.srv import UpdateLocalPath
 
 class SwitchLaneLeft(py_trees.behaviour.Behaviour):
     def __init__(self, name):
         super(SwitchLaneLeft, self).__init__(name)
 
     def setup(self, timeout):
+        rospy.wait_for_service('update_local_path')
+        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         self.Successs = False
         return True
 
@@ -13,6 +17,7 @@ class SwitchLaneLeft(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
+        self.update_local_path(change_lane_left=True)
 
 
     def update(self):
@@ -29,6 +34,8 @@ class SwitchLaneRight(py_trees.behaviour.Behaviour):
         super(SwitchLaneRight, self).__init__(name)
 
     def setup(self, timeout):
+        rospy.wait_for_service('update_local_path')
+        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         self.Successs = False
         return True
 
@@ -36,6 +43,7 @@ class SwitchLaneRight(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
+        self.update_local_path(change_lane_right=True)
 
 
     def update(self):

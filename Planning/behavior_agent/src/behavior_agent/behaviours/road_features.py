@@ -4,7 +4,7 @@ import rospy
 import py_trees
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
-
+import numpy as np
 
 
 class IntersectionAhead(py_trees.behaviour.Behaviour):
@@ -20,7 +20,6 @@ class IntersectionAhead(py_trees.behaviour.Behaviour):
     def initialise(self):
         self.dist = 0
 
-
     def update(self):
         # TODO Write data field to blackboard directly
         bb = self.blackboard.get("/psaf/ego_vehicle/distance_next_intersection")
@@ -33,11 +32,10 @@ class IntersectionAhead(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
-            
 
-        
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
 
 class RoundaboutAhead(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -47,21 +45,18 @@ class RoundaboutAhead(py_trees.behaviour.Behaviour):
         self.Roundabout = False
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-
 
     def update(self):
         if self.Roundabout:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
-
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
 
 class StopAhead(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -71,11 +66,8 @@ class StopAhead(py_trees.behaviour.Behaviour):
         self.Stop = False
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-
 
     def update(self):
         if self.Stop:
@@ -83,33 +75,32 @@ class StopAhead(py_trees.behaviour.Behaviour):
         else:
             return py_trees.common.Status.FAILURE
 
-        
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
 
 class MultiLane(py_trees.behaviour.Behaviour):
     def __init__(self, name):
         super(MultiLane, self).__init__(name)
 
+
     def setup(self, timeout):
+        self.blackboard = py_trees.blackboard.Blackboard()
         self.Success = False
         return True
 
-
-
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
-
+        pass
 
     def update(self):
         if self.Success:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
-
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
 
 class SingleLineDotted(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -119,11 +110,8 @@ class SingleLineDotted(py_trees.behaviour.Behaviour):
         self.Success = False
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-
 
     def update(self):
         if self.Success:
@@ -131,9 +119,9 @@ class SingleLineDotted(py_trees.behaviour.Behaviour):
         else:
             return py_trees.common.Status.FAILURE
 
-        
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
 
 class RightLaneAvailable(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -143,21 +131,18 @@ class RightLaneAvailable(py_trees.behaviour.Behaviour):
         self.Success = False
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-
 
     def update(self):
         if self.Success:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
-
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
+
 
 class LeftLaneAvailable(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -167,11 +152,8 @@ class LeftLaneAvailable(py_trees.behaviour.Behaviour):
         self.Success = False
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-
 
     def update(self):
         if self.Success:
@@ -179,6 +161,5 @@ class LeftLaneAvailable(py_trees.behaviour.Behaviour):
         else:
             return py_trees.common.Status.FAILURE
 
-        
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
