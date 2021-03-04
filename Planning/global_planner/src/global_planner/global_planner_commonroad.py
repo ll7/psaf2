@@ -17,6 +17,7 @@ from commonroad.common.util import Interval, AngleInterval
 from commonroad.geometry.shape import Rectangle
 from commonroad.visualization.plot_helper import *
 
+from carla_msgs.msg import CarlaWorldInfo
 from geometry_msgs.msg import Point, PoseWithCovarianceStamped
 from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Path, Odometry
@@ -24,6 +25,8 @@ from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from custom_carla_msgs.msg import GlobalPathLanelets
 from tf.transformations import euler_from_quaternion
+
+PLOT_CROSSING = False
 
 
 class GlobalPlanner:
@@ -34,6 +37,7 @@ class GlobalPlanner:
         self.target_sub = rospy.Subscriber(f"/psaf/{self.role_name}/target_point", NavSatFix, self.target_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.inital_pose_sub = rospy.Subscriber(f"/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
+        self.sub = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.world_info_received)
 
         self.path_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path", Path, queue_size=1, latch=True)
         self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets,
@@ -43,10 +47,12 @@ class GlobalPlanner:
         self.planning_problem_Set = None
         self.current_pos = None
         self.current_orientation = None
+        self.intersection_lanelet_ids = None
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
+        self.publish_intersection_lanelet_ids(msg.data)
         while self.scenario is None or self.current_orientation is None:
             rospy.sleep(0.05)
         self.create_global_plan()
@@ -65,6 +71,67 @@ class GlobalPlanner:
     def odometry_received(self, msg):
         self.current_pos = (msg.pose.pose.position.x, msg.pose.pose.position.y)
         self.current_orientation = msg.pose.pose
+
+    def world_info_received(self, msg):
+        self.map_number = msg.map_name
+
+    def publish_intersection_lanelet_ids(self, map_name):
+        def plot_map(intersections, plot_labels=True):
+            plt.figure(figsize=(20, 10))
+            # plot the scenario at different time step
+            handles = draw_object(self.scenario)
+            plt.gca().set_aspect('equal')
+
+            for id_lanelet in intersections:
+                lanelet = self.scenario.lanelet_network.find_lanelet_by_id(id_lanelet)
+                draw_object(lanelet, handles=handles, draw_params={'lanelet': {
+                    'unique_colors': False,  # colorizes center_vertices and labels of each lanelet differently
+                    'draw_stop_line': False,
+                    'stop_line_color': '#ffffff',
+                    'draw_line_markings': True,
+                    'draw_left_bound': False,
+                    'draw_right_bound': False,
+                    'draw_center_bound': True,
+                    'draw_border_vertices': False,
+                    'draw_start_and_direction': True,
+                    'show_label': plot_labels,
+                    'draw_linewidth': 1,
+                    'fill_lanelet': True,
+                    'facecolor': '#00b8cc',  # color for filling
+                    'zorder': 30,  # put it higher in the plot, to make it visible
+                    'center_bound_color': '#3232ff',  # color of the found route with arrow
+                }})
+
+            plt.show()
+
+        # every lanelet in a intersection has exactly one successor and predecessor
+        intersection_ids = []
+        for lanelet_id in range(100, len(self.scenario.lanelet_network.lanelets) + 100):
+            lane = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
+            if len(lane.predecessor) == 1 and len(lane.successor) == 1 and lane.distance[-1] < 100:
+                intersection_ids.append(lanelet_id)
+
+        # remove lanelets that were wrongly detected.
+        if self.map_number == 1:
+            ids_to_remove = []
+        elif self.map_number == 2:
+            ids_to_remove = []
+        elif self.map_number == 3:
+            ids_to_remove = [115, 107, 342, 340, 176, 169, 258, 259, 260, 320, 386, 177]
+        elif self.map_number == 5:
+            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]
+        else:
+            ids_to_remove = []
+
+        out_list = []
+        for id in intersection_ids:
+            if id not in ids_to_remove:
+                out_list.append(id)
+
+        if PLOT_CROSSING:
+            plot_map(out_list, False)
+
+        self.intersection_lanelet_ids = out_list
 
     def create_global_plan(self):
         print("Path creation started")
@@ -92,6 +159,7 @@ class GlobalPlanner:
         lanelet_msg = GlobalPathLanelets()
         lanelet_msg.lanelet_ids = route.list_ids_lanelets
         lanelet_msg.adjacent_lanelet_ids = json.dumps(route.retrieve_route_sections())
+        lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
         self.lanelet_pub.publish(lanelet_msg)
 
         point_route = route.reference_path

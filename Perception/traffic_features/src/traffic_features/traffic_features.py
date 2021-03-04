@@ -38,6 +38,7 @@ class TrafficFeatures:
         self.lanelets_on_route = msg.lanelet_ids
         self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
         self.adjacent_lanelets_flattened = [item for sublist in self.adjacent_lanelets for item in sublist]
+        self.intersection_lanelet_ids = msg.lanelet_ids_in_intersection
         if self.scenario and self.adjacent_lanelets_flattened:
             self.update_lanelet_lengths()
 
@@ -54,7 +55,7 @@ class TrafficFeatures:
         for lanelet_id in possible_ids[0]:
             if lanelet_id in self.adjacent_lanelets_flattened:
                 lane = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
-                if len(lane.predecessor) == 1 and len(lane.successor) == 1:
+                if lanelet_id in self.intersection_lanelet_ids:
                     distance = np.inf
                 else:
                     distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
