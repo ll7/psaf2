@@ -2,7 +2,7 @@ import math
 import numpy as np
 import rospy
 from sensor_msgs.msg import Image
-from std_msgs.msg import Int32
+from std_msgs.msg import Float64
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
@@ -10,7 +10,7 @@ from numpy import array, linspace
 from sklearn.neighbors import KernelDensity
 from matplotlib.pyplot import plot
 from scipy.signal import argrelextrema
-
+import matplotlib.pyplot as plt
 
 class LaneDetector(object):
 
@@ -20,9 +20,9 @@ class LaneDetector(object):
             self.imgheight = 300
             self._semantic_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
             self._roadmark_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
-            self._semanticseg_subscriber = rospy.Subscriber("/carla/{}/semantic_segmentation_front/image".format(role_name), Image, self.semanticseg_updated)
+            self._semanticseg_subscriber = rospy.Subscriber("/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semanticseg_updated)
             self.roadmark_publisher = rospy.Publisher("/psaf/{}/roadmark".format(role_name), Image, queue_size=1)   
-            self.stopline_publisher = rospy.Publisher("/psaf/{}/stopline_distance".format(role_name), Int32, queue_size=1) 
+            self.stopline_publisher = rospy.Publisher("/psaf/{}/stopline_distance".format(role_name), Float64, queue_size=1) 
             self.cluster_bandwidth = 0.1
             self.cluster_resolution = 10000
         
@@ -30,6 +30,22 @@ class LaneDetector(object):
         """
         Run HoughTransformation, cluster lines, compute offset.
         """
+        ## old code
+        # height, width, channels = self._semantic_img.shape
+        # for h in range(height):
+        #     for w in range(width):
+        #         if (self._semantic_img[h, w, :] == [50, 234, 157]).all():
+        #             self._roadmark_img[h,w,:] = [255,255,255]
+        #         else:
+        #             self._roadmark_img[h,w,:] = [0,0,0]
+        # minLineLength = 3
+        # maxLineGap = 10
+        # gray = cv2.cvtColor(self._roadmark_img, cv2.COLOR_BGR2GRAY)
+        # gray = cv2.blur(gray,(2,2))
+        # lines = cv2.HoughLinesP(gray, 3, np.pi / 180, 150, minLineLength, maxLineGap)
+        # plt.imshow(self._roadmark_img)
+        # plt.show()
+
         # cut mask from image
         height, width, channels = self._semantic_img.shape
         pts = np.array([[0,300],[200,150],[400,300]])
@@ -48,6 +64,7 @@ class LaneDetector(object):
         gray = cv2.cvtColor(self._roadmark_img, cv2.COLOR_BGR2GRAY)
         gray = cv2.blur(gray,(2,2))
         lines = cv2.HoughLinesP(gray, 3, np.pi / 180, 80, minLineLength, maxLineGap)
+
         angles = self.calc_angles(lines)
 
         # if more than one line detected, make clusters
@@ -59,11 +76,26 @@ class LaneDetector(object):
             if clusters is not None:
                 cluster_bounds = self.convert_clusters(clusters)
                 lines_cluster = self.group_lines(cluster_bounds, lines)
-                fangles = self.merge_cluster(line_cluster)
-        
-                delta = self.compute_offset(fangles)
-                if delta:
-                    print(str(delta))
+                fangles, ypos = self.merge_cluster(lines_cluster)
+
+                stop_line = False
+                distance_to_stop = 0
+                stopline_threshold = 0.05 * np.pi
+                for idx, a in enumerate(fangles):
+                    if abs(a) < stopline_threshold:
+                        stop_line = True
+                        distance_to_stop = (self.imgheight - ypos[idx]) / self.imgheight
+                        break
+                
+                if stop_line:
+                    self.stopline_publisher.publish(distance_to_stop)
+                else:
+                    self.stopline_publisher.publish(np.inf)
+
+
+                #delta = self.compute_offset(fangles)
+                #if delta:
+                #    print(str(delta))
 
         try:
             im = self.bridge.cv2_to_imgmsg(self._roadmark_img)
@@ -75,7 +107,10 @@ class LaneDetector(object):
         """
         Group lines by angles and clusters
         """
-        lines_cluster = [[] for _ in range(len(clusters))]
+        lines_cluster = [[] for _ in range(len(cluster_bounds))]
+
+        # colors for different clusters (only for debugging)
+        colors = [(0, 145, 255), (239, 255, 0), (230, 0, 255), (0, 255, 17), (0, 255, 180), (70, 200, 100)] 
 
         for line in lines:
             x1, y1, x2, y2 = line[0][0], line[0][1], line[0][2], line[0][3]
@@ -94,6 +129,8 @@ class LaneDetector(object):
                         color = colors[idx]
                     break  
 
+        return lines_cluster
+
     def merge_cluster(self, line_cluster):
         """
         Merge each cluster to one line
@@ -102,8 +139,9 @@ class LaneDetector(object):
         colors = [(0, 145, 255), (239, 255, 0), (230, 0, 255), (0, 255, 17), (0, 255, 180), (70, 200, 100)] 
 
         fangles = []
-        for idx, lines in enumerate(lines_cluster):
-            x1, y1, x2, y2 = line[0][0], line[0][1], line[0][2], line[0][3]
+        ypos = []
+        for idx, line in enumerate(line_cluster):
+            x1, y1, x2, y2 = line[0][0][0], line[0][0][1], line[0][0][2], line[0][0][3]
             if idx > len(colors) -1:
                 color = (0, 255, 255)
             else:
@@ -113,7 +151,9 @@ class LaneDetector(object):
             if angle < 0:
                 angle += np.pi
             fangles.append(angle)
-        return fangles
+            ystar = (y1 + y2) / 2
+            ypos.append(ystar)
+        return fangles, ypos
 
     def compute_offset(self, fangles):
         """
