@@ -30,7 +30,7 @@ class Radar(object):  # pylint: disable=too-few-public-methods
             f"/carla/{role_name}/radar/front/radar_points", PointCloud2, self.radar_updated)
         self._dist_publisher = rospy.Publisher(f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
         self._route_subscriber = rospy.Subscriber(
-            f"/psaf/{role_name}/global_path", Path, self.route_updated)
+            f"/psaf/{role_name}/local_path", Path, self.route_updated)
         self._odometry_subscriber = rospy.Subscriber(
             "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
         self._points_publisher = rospy.Publisher(f"psaf/{role_name}/radar/points", PointCloud2, queue_size=1)
