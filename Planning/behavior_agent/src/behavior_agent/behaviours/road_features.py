@@ -86,14 +86,16 @@ class MultiLane(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.blackboard = py_trees.blackboard.Blackboard()
-        self.Success = False
         return True
 
     def initialise(self):
         pass
 
     def update(self):
-        if self.Success:
+        bb = self.blackboard.get("/psaf/ego_vehicle//lane_status")
+        if bb is None:
+            return py_trees.common.Status.FAILURE
+        if bb.isMultiLane:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
@@ -128,14 +130,17 @@ class RightLaneAvailable(py_trees.behaviour.Behaviour):
         super(RightLaneAvailable, self).__init__(name)
 
     def setup(self, timeout):
-        self.Success = False
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
+        pass
 
     def update(self):
-        if self.Success:
+        bb = self.blackboard.get("/psaf/ego_vehicle/lane_status")
+        if bb is None:
+            return py_trees.common.Status.FAILURE
+        if bb.isRightLaneAvailable:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
@@ -149,14 +154,17 @@ class LeftLaneAvailable(py_trees.behaviour.Behaviour):
         super(LeftLaneAvailable, self).__init__(name)
 
     def setup(self, timeout):
-        self.Success = False
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
+        pass
 
     def update(self):
-        if self.Success:
+        bb = self.blackboard.get("/psaf/ego_vehicle/lane_status")
+        if bb is None:
+            return py_trees.common.Status.FAILURE
+        if bb.isLeftLaneAvailable:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE

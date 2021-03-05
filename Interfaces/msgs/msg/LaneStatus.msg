@@ -1,0 +1,3 @@
+bool isMultiLane
+bool isRightLaneAvailable
+bool isLeftLaneAvailable

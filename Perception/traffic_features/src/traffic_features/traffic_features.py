@@ -5,7 +5,7 @@ import numpy as np
 
 from std_msgs.msg import Float64, String
 from nav_msgs.msg import Odometry
-from custom_carla_msgs.msg import GlobalPathLanelets
+from custom_carla_msgs.msg import GlobalPathLanelets, LaneStatus
 
 from commonroad.common.file_reader import CommonRoadFileReader
 
@@ -21,6 +21,7 @@ class TrafficFeatures:
         self.last_non_intersection_lanelet_id = None
         
         self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
+        self.lane_status_pub = rospy.Publisher(f"/psaf/{self.role_name}/lane_status", LaneStatus, queue_size=1)
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.lanelet_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, self.lanelets_received)
@@ -47,8 +48,12 @@ class TrafficFeatures:
             lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
             self.lanelet_lengths[lanelet_id] = lanelet.distance
 
-    def update_distance(self):
+    def update_road_features(self):
         possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_pos])
+        ls = LaneStatus()
+        ls.isMultiLane = False
+        ls.isRightLaneAvailable = False
+        ls.isLeftLaneAvailable = False
         if len(possible_ids) == 0:
             print("Car is not on street. Abort.")
             return
@@ -61,7 +66,14 @@ class TrafficFeatures:
                     distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
                     idx = np.argmin(distances_to_center_vertices)
                     distance = self.lanelet_lengths[lanelet_id][-1] - self.lanelet_lengths[lanelet_id][idx]
+                    if lane.adj_left_same_direction:
+                        ls.isMultiLane = True
+                        ls.isLeftLaneAvailable = True
+                    if lane.adj_right_same_direction:
+                        ls.isMultiLane = True
+                        ls.isRightLaneAvailable = True
                 self.distance_pub.publish(distance)
+                self.lane_status_pub.publish(ls)
                 return
 
     def run(self):
@@ -72,7 +84,7 @@ class TrafficFeatures:
         r = rospy.Rate(10)
         while not rospy.is_shutdown():
             if self.scenario:
-                self.update_distance()
+                self.update_road_features()
             try:
                 r.sleep()
             except rospy.ROSInterruptException:
