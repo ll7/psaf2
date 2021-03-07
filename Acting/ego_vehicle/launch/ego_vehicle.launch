@@ -50,6 +50,7 @@
   
   <!-- Perception-->
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
+  <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
   <include file="$(find radar)/launch/radar.launch"> </include>
   
