@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="street_sign_detector" type="street_sign_detector.py" name="street_sign_detector" output="screen">
-  </node>
-
-</launch>
-

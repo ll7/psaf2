@@ -37,6 +37,6 @@ class PIDLongitudinalController(object):  # pylint: disable=too-few-public-metho
             _de = 0.0
             _ie = 0.0
 
-        return (self._K_P * _e) + (self._K_D * _de / dt) + (self._K_I * _ie * dt)
+        return np.clip((self._K_P * _e) + (self._K_D * _de / dt) + (self._K_I * _ie * dt), 0.0, 1.0)
 
 

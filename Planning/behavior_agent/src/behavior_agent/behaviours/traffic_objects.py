@@ -16,13 +16,10 @@ class NotSlowedByCarInFront(py_trees.behaviour.Behaviour):
 
 
     def update(self):
-        self.slowed = self.blackboard.get("/psaf/ego_vehicle/bt/condition/slowed_by_car_in_front")
-        if self.slowed is None:
+        if self.Successs:
             return py_trees.common.Status.SUCCESS
-        if self.slowed.data == True:
-            return py_trees.common.Status.FAILURE
         else:
-            return py_trees.common.Status.SUCCESS
+            return py_trees.common.Status.RUNNING
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
