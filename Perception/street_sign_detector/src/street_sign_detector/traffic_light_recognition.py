@@ -38,19 +38,20 @@ def detect_traffic_light_color(img):
     output_img[np.where(red_mask_full > 0)] = [0, 0, 255]
     #print(np.average(output_img))
     average_pixel = np.average(output_img, axis=(0, 1))
+    average_pixel_red = np.average(img, axis=(0, 1))
 
     traffic_light_color = ''
-  
-    if (average_pixel[0]>average_pixel[1]) and (average_pixel[0]>average_pixel[2]):
+ 
+    if (average_pixel[1]>average_pixel[0]) and (average_pixel[1]>average_pixel[2]):
+        traffic_light_color = 'green'  
+    elif (average_pixel_red[0]>average_pixel_red[1]) and (average_pixel_red[0]>average_pixel_red[2]):
         traffic_light_color = 'red'
     elif (average_pixel[2]>average_pixel[0]) and (average_pixel[2]>average_pixel[1]):
         traffic_light_color = 'yellow'
-    elif (average_pixel[1]>average_pixel[0]) and (average_pixel[1]>average_pixel[2]):
-        traffic_light_color = 'green'
     else:
         #traffic_light_color = 'off' 
         #traffic_light_color = ','.join(str(x) for x in average_pixel)
-        average_pixel_off = np.average(output_img, axis=(0, 1))
+        average_pixel_off = np.average(img, axis=(0, 1))
         traffic_light_color = ','.join(str(x) for x in average_pixel_off)
 
 
