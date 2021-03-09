@@ -42,9 +42,9 @@
     <arg name="spawn_ego_vehicle" value="$(arg spawn_ego_vehicle)" />
   </include>
   
-  <!-- <include file="$(find carla_manual_control)/launch/carla_manual_control.launch">
+  <include file="$(find carla_manual_control)/launch/carla_manual_control.launch">
     <arg name='role_name' value='$(arg role_name)'/>
-  </include> -->
+  </include>
 
   <!-- Add Launchfiles here -->
   
@@ -52,6 +52,7 @@
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
   <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
+  <include file="$(find oncoming_traffic_observer)/launch/oncoming_traffic_observer.launch">  </include>
 
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  

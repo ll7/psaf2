@@ -13,6 +13,7 @@ add_message_files(
   FILES
   CommonroadMap.msg
   GlobalPathLanelets.msg
+  OncomingTrafficObserver.msg
 )
 
 generate_messages(
