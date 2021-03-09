@@ -373,6 +373,7 @@ class StreetSignDetector:
         '''
 
         if not type(detections) is PerceptionInfo or not detections or not detections.objects:
+            self.perception_info_publisher.publish(PerceptionInfo())
             return None
             
 
@@ -396,7 +397,7 @@ class StreetSignDetector:
             street_sign_detections = self.detect_street_signs(self.rgb_img, self.semantic_segmentation_img)
 
             if street_sign_detections:
-                self.publish_detection(street_sign_detections) 
+            	self.publish_detection(street_sign_detections)
             try:
                 r.sleep()
             except rospy.ROSInterruptException:
