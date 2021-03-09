@@ -19,7 +19,7 @@ class BehaviorTrafficLights():
 
         self._target_speed_subscriber = rospy.Subscriber("/carla/{}/target_speed".format(role_name), Float64,
                                                          self.target_speed)
-        self._odometry_subscriber = rospy.Subscriber("/carla/{}/speedometer".format(role_name), Float32, self.speed)
+        #self._odometry_subscriber = rospy.Subscriber("/carla/{}/speedometer".format(role_name), Float32, self.speed)
 
         # PUBLISHERS
         # self.entry_state_pub = rospy.Publisher("/carla/{}/vehicle_entry_state_interseption".format(role_name), Int8, queue_size=1)
@@ -49,11 +49,19 @@ class BehaviorTrafficLights():
         """
         callback on traffic light state
         """
-        if (perception.values == red) or (perception.values == yellow):
-            self.traffic_light_collor()
-            return True
+        speed = 5
+        print(perception.values)
+        if ('red' in perception.values) or ('yellow' in perception.values):
+        #if (perception.values == ['red']) or (light == "yellow"):
+            self.stop()
+            rospy.loginfo("STOP")
         else:
-            return False
+            self.no_red()
+            #runn(self)
+        return speed
+
+    def no_red(self):
+        rospy.loginfo("RUN")
 
     def radar_info (self, msg):
         """
@@ -61,34 +69,39 @@ class BehaviorTrafficLights():
         """
         self.dictance_to_vehicle = msg.data
         return self.dictance_to_vehicle
+    
+    def update_speed (self, speed):
+        print(speed)
 
-    def stop (self, dis):
-        print('stop')
-
-
-    def run ():
-        print('run')
-
+    def stop (self):
+        rospy.loginfo("STOP")
 
     def run(self):
         """
         drive into the intersection
         """
-        if self.traffic_light_info():
-            if self.dictance_to_vehicle > 0:
-                distance = self.dictance_to_vehicle
-            elif self.distance_stop_line > 0:
-                distance = self.distance_stop_line
-            else:
-                distance = self.distance_inter
+        #if self.traffic_light_info():
+            #if self.dictance_to_vehicle > 0:
+                #distance = self.dictance_to_vehicle
+            #elif self.distance_stop_line > 0:
+                #distance = self.distance_stop_line
+            #else:
+                #distance = self.distance_inter
 
-            self.stop(distance)
-        else:
-            self.run()
+            #self.stop(distance)
+        #else:
+            #self.run()
+        r = rospy.Rate(10)
+        while not rospy.is_shutdown():
+
+                try:
+                    r.sleep()
+                except rospy.ROSInterruptException:
+                    pass
 
 
 def main():
-    rospy.init_node('behavior_traffic_light', anonymous=True)
+    rospy.init_node('traffic_lights_intersection', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
     #target_speed = rospy.get_param("~target_speed", 0)
     tf = BehaviorTrafficLights(role_name)
