@@ -20,7 +20,7 @@ class LocalPlanner:
         self.scenario = None
         # self.global_path = None
 
-        # adjacetn_lanelets = [[1], [2, 3], [4, 5], [6]] 2D-List that creates the global path. If more than one element
+        # adjacent_lanelets = [[1], [2, 3], [4, 5], [6]] 2D-List that creates the global path. If more than one element
         # exists in a sub-list it means that there is a adjacent lane. A possible path would be: 1,2,4,6 or 1,3,4,6
         self.adjacent_lanelets = None
         self.adjacent_lanelets_flattened = None  # list of all possible lanelets on route
