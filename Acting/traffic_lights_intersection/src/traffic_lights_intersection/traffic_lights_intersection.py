@@ -66,8 +66,8 @@ class BehaviorTrafficLights():
 
     def stop(self):
         rospy.loginfo("STOP")
-        self.stop_dist_intersec = 30 # for test
-        self.stop_dist_vehicle = 50 # for test
+        self.stop_dist_intersec = 8 # for test
+        self.stop_dist_vehicle = 7 # for test
         self.stop_distance = min(self.stop_dist_intersec, self.stop_dist_vehicle) # maximum distance to stop
         self.current_speed = self.actual_speed
         braking_distances = pow((self.current_speed/10), 2)
@@ -80,7 +80,8 @@ class BehaviorTrafficLights():
         callback on target speed
         """
         rospy.loginfo("RUN")
-        self.self.target_speed_pub.publish(target_speed)
+        target_speed = 5
+        self.target_speed_pub.publish(target_speed)
 
     def run(self):
         """
