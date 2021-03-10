@@ -52,7 +52,8 @@ def detect_traffic_light_color(img):
         #traffic_light_color = 'off' 
         #traffic_light_color = ','.join(str(x) for x in average_pixel)
         average_pixel_off = np.average(img, axis=(0, 1))
-        traffic_light_color = ','.join(str(x) for x in average_pixel_off)
+        #traffic_light_color = ','.join(str(x) for x in average_pixel_off)
+        traffic_light_color = ''
 
 
     return traffic_light_color
