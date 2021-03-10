@@ -392,7 +392,7 @@ class StreetSignDetector:
         Control loop
         :return:
         """
-        r = rospy.Rate(5)
+        r = rospy.Rate(2)
         while not rospy.is_shutdown():
             street_sign_detections = self.detect_street_signs(self.rgb_img, self.semantic_segmentation_img)
 
