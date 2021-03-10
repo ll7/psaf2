@@ -18,7 +18,6 @@ class LocalPlanner:
         self.role_name = role_name
         self.current_pos = np.zeros(shape=2)
         self.scenario = None
-        # self.global_path = None
 
         # adjacent_lanelets = [[1], [2, 3], [4, 5], [6]] 2D-List that creates the global path. If more than one element
         # exists in a sub-list it means that there is a adjacent lane. A possible path would be: 1,2,4,6 or 1,3,4,6
@@ -28,7 +27,6 @@ class LocalPlanner:
         # add ros subscribers
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
-        # self.global_path_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path", Path, self.global_path_received)
         self.lanelet_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, self.lanelets_received)
 
         # add ros publishers
@@ -38,9 +36,6 @@ class LocalPlanner:
         self.scenario, _ = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
         self.org_scenario = copy.deepcopy(self.scenario)
-
-    # def global_path_received(self, msg):
-    #     self.global_path = msg
 
     def lanelets_received(self, msg):
         self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
