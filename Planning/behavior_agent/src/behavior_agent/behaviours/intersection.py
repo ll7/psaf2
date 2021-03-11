@@ -19,7 +19,7 @@ class Approach(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
-        rospy.loginfo("Approaching")
+        rospy.loginfo("Approaching Intersection")
         self.update_local_path(approach_intersection=True)
         #self.target_speed_pub.publish(0)
 
@@ -76,9 +76,8 @@ class Enter(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
-        rospy.loginfo("LEAVING")
         self.update_local_path(leave_intersection=True)
-        self.target_speed_pub.publish(30.0)
+        self.target_speed_pub.publish(50.0)
 
     def update(self):
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
