@@ -6,7 +6,7 @@ To do so the node receives the current position of the ego vehicle and computes 
 map. With this and the information about the global path a local path is created. The local path includes a route from
 the current position until the end of the next lanelet.
 
-By using a local planner instead of a global one the ego vehicle is e.g. able to stay on a adjacent lane next to the lane 
+Using a local planner instead of a global one has some advantages. E.g. the ego vehicle is able to stay on a adjacent lane next to the lane 
 given by the global path for easier overtaking. The local planner is also responsible to switch to the correct lane if
 necessary before entering an intersection.  
 
