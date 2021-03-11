@@ -8,7 +8,7 @@ the current position until the end of the next lanelet.
 
 By using a local planner instead of a global one the ego vehicle is e.g. able to stay on a adjacent lane next to the lane 
 given by the global path for easier overtaking. The local planner is also responsible to switch to the correct lane if
-necessary before entering a intersection.  
+necessary before entering an intersection.  
 
 The generated local path is then published to /psaf/ego_vehicle/localPath.
 
