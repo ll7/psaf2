@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="traffic_lights_status" type="traffic_lights_status.py" name="traffic_lights_status" output="screen">
-  </node>
-
-</launch>
-
