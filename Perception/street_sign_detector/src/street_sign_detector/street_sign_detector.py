@@ -17,7 +17,7 @@ from traffic_light_recognition import detect_traffic_light_color
 class StreetSignDetector:
     """
     Class to use /carla/<role_name>/semantic_segmentation_front/image and /carla/<role_name>/rgb_front/image topic
-    to detect street signs and publish them to /psaf/<role_name>/perception_info and /psaf/<role_name>/speed_limit topics.
+    to detect street signs and traffic lights and publish them to /psaf/<role_name>/perception_info and /psaf/<role_name>/speed_limit topics.
     """
 
     def __init__(self, role_name):
@@ -26,24 +26,28 @@ class StreetSignDetector:
         
         # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
         self.minimal_object_size_for_detection = 15
-        self.extract_padding = 20
         
         # OCR settings
         self.tesseract_config = "--psm 11 --oem 1"
         
+        # some letters are not detected correctly by tesseract, so replace them accordingly
         self.speed_limit_replacements = [
                                     [ '$', '9' ],
                                     [ '(', '' ],
                                     [ ')', '' ],
                                     [ 'O', '0' ],
+                                    [ 'o', '0' ],
+                                    [ 'q', '9' ],
+                                    [ 'Q', '9' ],
                                     [ '{', '' ],
-                                    [ '}', '' ]
+                                    [ '}', '' ],
+                                    [ '8', '9' ]
                                 ]
         
         self.rgb_img = None
         self.semantic_segmentation_img = None
         
-        # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
+        # an object must contain at least this amount of pixels in the semantic segmentation camera before it will be passed to further recognition tasks
         self.minimal_object_size_for_detection = 20
 
         # COLOR SETTINGS (B, R, G) (have to be numpy arrays!)
@@ -51,7 +55,8 @@ class StreetSignDetector:
         self.semantic_traffic_light_color = np.array([ 30, 170, 250 ], np.uint8)
         self.semantic_replace_by_color = np.array([ 255, 255, 255 ], np.uint8)      # sign's color to be (temporarily) replaced by
         
-        # OFFSET: top, right, bottom, left
+        # There are dead areas in the camera's field of view where street signs and traffic lights can be ignored
+        # OFFSET: [top, right, bottom, left]
         self.semantic_street_signs_offset = [0.2, 0, 0.2, 0.5]
         self.semantic_traffic_light_offset = [0, 0.3, 0.4, 0.3]
 
@@ -77,6 +82,12 @@ class StreetSignDetector:
 
         
     def rgb_image_updated(self, data):
+        """
+        Update callback for the RGB camera
+        
+        :param data: the data received from the topic
+        :return:
+        """
         try:
             self.rgb_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
@@ -84,6 +95,12 @@ class StreetSignDetector:
 
 
     def semantic_segmentation_image_updated(self, data):
+        """
+        Update callback for the semantic segmentation camera
+        
+        :param data: the data received from the topic
+        :return:
+        """
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
@@ -91,21 +108,28 @@ class StreetSignDetector:
 
 
     def resize_semantic_segmentation_image(self, img_sem, img_rgb):
+        """
+        Scales semantic segmentation image to the dimensions of the RGB image in case they are not identically to get a correct mapping
+        :param img_sem: image of the semantic segmentation camera
+        :param img_rgb: image of the RGB camera
+        :return: scaled semantic segmentation image
+        """
         height_rgb, width_rgb, channels_rgb = img_rgb.shape
         height_sem, width_sem, channels_sem = img_sem.shape
         ratio_height = height_rgb / height_sem
         ratio_width = width_rgb / width_sem
 		
-		# the relative difference between the heigth of the semantic segmentation camera and the height of the rgb camera is 
-		# smaller than the relative difference between the width
+		    # the relative difference between the heigth of the semantic segmentation camera and the height of the rgb camera is 
+		    # smaller than the relative difference between the width
         if ratio_height < ratio_width:
-			# apply the height of the rgb image to the semantic segmentation image
+			      # apply the height of the rgb image to the semantic segmentation image
             img_resized = cv2.resize(img_sem, (int(width_sem * ratio_height), int(height_sem * ratio_height)),
                                      fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
-		# the relative difference between the width of the semantic segmentation camera and the width of the rgb camera is 
-		# smaller than the relative difference between the heigth
+                                     
+		    # the relative difference between the width of the semantic segmentation camera and the width of the rgb camera is 
+		    # smaller than the relative difference between the heigth
         elif ratio_width < ratio_height:
-			# apply the width of the rgb image to the semantic segmentation image
+			      # apply the width of the rgb image to the semantic segmentation image
             img_resized = cv2.resize(img_sem, (int(width_sem * ratio_width), int(height_sem * ratio_width)),
                                      fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
         else:
@@ -115,21 +139,23 @@ class StreetSignDetector:
         new_img_sem = np.zeros((height_rgb, width_rgb, 3), np.uint8)
         x_offset = int((width_rgb - width_resized) / 2)
         y_offset = int((height_rgb - height_resized) / 2)
-		# put black bars on the top and the bottom of the semantic segmentation image (if ratio_width < ratio_height)
-		# or on the left and right side (if ratio_width < ratio_height)
+        
+		    # put black bars on the top and the bottom of the semantic segmentation image (if ratio_width < ratio_height)
+		    # or on the left and right side (if ratio_width < ratio_height)
         new_img_sem[y_offset:y_offset + height_resized, x_offset:x_offset + width_resized] = img_resized
+        
         return new_img_sem
         
 
     def detect_street_signs(self, img_rgb, img_sem):
-        '''
+        """
         Searches for street signs in the semantic segmentation (img_sem)
         if present, calls tesseract to read the speed limit
 
         :param img_rgb: The RGB camera image
-        :param img_sem: The semantic segmentation camera image (by now its resolution must be 0.5 times the RGB camera's resolution)
+        :param img_sem: The semantic segmentation camera image
         :return: If possible, the detection as an instance of PerceptionInfo; None otherwise
-        '''
+        """
 
         if img_sem is None or img_rgb is None:
             return
@@ -204,7 +230,10 @@ class StreetSignDetector:
                 	
                 text = pytesseract.image_to_string(gray, config="--psm 13", lang='eng')
                 text = text.strip()
-                    
+                detections.objects.append("test_sign")
+                detections.values.append(text)
+                detections.relative_x_coord.append(x_rel)
+                detections.relative_y_coord.append(y_rel)
                 for replacement in self.speed_limit_replacements:
                     text = text.replace(replacement[0], replacement[1])
                 recognized_number = ''.join([ i for i in text.split() if i.isdigit() ])
@@ -228,6 +257,12 @@ class StreetSignDetector:
 
 
     def check_image_offset(self, h, w, offset):
+        """
+        Checks if the the height and width of a pixel are in the given offset
+        :param h: height of the pixel
+        :param w: width of the pixel
+        :return: False if the pixel is located in the offset; True otherwise
+        """
         # offset top
         if h < offset[0] * self.semantic_segmentation_img.shape[0]:
             return False
@@ -244,6 +279,12 @@ class StreetSignDetector:
         
         
     def cut_image_offset(self, image, offset):
+        """
+        Cuts apart the given offset from the given image
+        :param image: the image of which the offset should be cut apart
+        :param offset: the offset which should be cut apart
+        :return: the cut out image
+        """
         offset_top = round(offset[0] * image.shape[0])
         offset_bottom = image.shape[0] - round(offset[2] * image.shape[0])
         offset_left = round(offset[1] * image.shape[1])
@@ -253,19 +294,22 @@ class StreetSignDetector:
         
         
     def get_block_by_pixel(self, img_rgb, img_sem, search_color, h_current, w_current, height, width):
-        '''
-        Finds the street sign in the image of the segmentation camera which includes the pixel at position (h_current,
-        w_current), cuts the shape out of the rgb camera image and saves the street sign in a file.
+        """
+        Finds the object in the image of the segmentation camera with the given color and which includes the pixel at position (h_current,
+        w_current), cuts the shape out of the rgb camera image and returns the cut out object
 
-        :param img_rgb: current image of the rgb camera
+        :param img_rgb: current image of the RGB camera
         :param img_sem: current image of the semantic segmentation camera
         :param search_color: the color searched for (BRG!), e.g. [ 0, 220, 220 ]
         :param h_current: x position of the currently observed pixel
         :param w_current: y position of the currently observed pixel
-        :param height: height of img_sem_seg
-        :param width: width of img_sem_seg
-        :return: returns a list of the extracted img_sem part in which the latest found street sign is contained and of the img_sem with all the pixels of the current street sign block converted to semantic_replace_by_color - or it returns None instead, when the block of pixels belonging together is too small and below the configured threshold (e.g. the traffic sign is too far away and therefore too small until now)
-        '''
+        :param height: height of img_sem
+        :param width: width of img_sem
+        :return: returns a list of the extracted img_sem part in which the latest found object is contained and of the img_sem with
+        all the pixels of the current object block converted to semantic_replace_by_color - or it returns None for the extracted
+        img_sem part instead, when the block of pixels belonging together is too small and below the configured threshold (e.g. the
+        object is too far away and therefore too small until now)
+        """
             
         pixels = []
         current_pixels = []
@@ -300,7 +344,7 @@ class StreetSignDetector:
                     img_sem[pixel[0], pixel[1] + 1] = self.semantic_replace_by_color
                 current_pixels.remove(pixel)
 
-        # ignore too small images, return None
+        # ignore too small images, return None for the extracted img_sem part
         if(len(pixels) < self.minimal_object_size_for_detection):
             return (None, img_sem)
 
@@ -365,12 +409,12 @@ class StreetSignDetector:
 
 
     def publish_detection(self, detections):
-        '''
-        Publish the detection to the relevant topic(s)
+        """
+        Publish the detections to the relevant topics
 
-        :param detection: Detection as an instance of PerceptionInfo
+        :param detections: Detections as an instance of PerceptionInfo
         :return:
-        '''
+        """
 
         if not type(detections) is PerceptionInfo or not detections or not detections.objects:
             self.perception_info_publisher.publish(PerceptionInfo())
