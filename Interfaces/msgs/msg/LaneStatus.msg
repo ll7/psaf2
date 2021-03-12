@@ -1,3 +1,4 @@
 bool isMultiLane
-bool isRightLaneAvailable
-bool isLeftLaneAvailable
+int32 rightLaneId
+int32 leftLaneId
+int32 currentLaneId
