@@ -92,7 +92,7 @@ class MultiLane(py_trees.behaviour.Behaviour):
         pass
 
     def update(self):
-        bb = self.blackboard.get("/psaf/ego_vehicle//lane_status")
+        bb = self.blackboard.get("/psaf/ego_vehicle/lane_status")
         if bb is None:
             return py_trees.common.Status.FAILURE
         if bb.isMultiLane:
@@ -140,7 +140,7 @@ class RightLaneAvailable(py_trees.behaviour.Behaviour):
         bb = self.blackboard.get("/psaf/ego_vehicle/lane_status")
         if bb is None:
             return py_trees.common.Status.FAILURE
-        if bb.isRightLaneAvailable:
+        if bb.rightLaneId != -1:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
@@ -164,7 +164,7 @@ class LeftLaneAvailable(py_trees.behaviour.Behaviour):
         bb = self.blackboard.get("/psaf/ego_vehicle/lane_status")
         if bb is None:
             return py_trees.common.Status.FAILURE
-        if bb.isLeftLaneAvailable:
+        if bb.leftLaneId != -1:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
