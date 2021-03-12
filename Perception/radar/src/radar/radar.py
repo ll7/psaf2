@@ -111,6 +111,18 @@ class Radar(object):  # pylint: disable=too-few-public-methods
             
     def route_updated(self, path):
         self.path = path
+        self.role_name = role_name
+        self.points = []
+        self._route_subscriber = rospy.Subscriber(
+            f"/carla/{role_name}/radar/front/radar_points", PointCloud2, self.radar_updated)
+        self._dist_publisher = rospy.Publisher(f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
+    
+    
+    def radar_updated(self, msg):
+        self.points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))
+        dist = [p[0] for p in self.points]
+        print(min(dist))
+
 
     def run(self):
         """

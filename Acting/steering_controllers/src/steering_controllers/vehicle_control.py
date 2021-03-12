@@ -11,9 +11,6 @@ from std_msgs.msg import Float64, Float32
 from steering_controllers.pid_control import PIDLongitudinalController 
 from steering_controllers.stanley_control import StanleyLateralController
 
-
-
-
 class VehicleController(object):  # pylint: disable=too-few-public-methods
     """
     VehicleController is the combination of two controllers (lateral and longitudinal)
