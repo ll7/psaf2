@@ -49,32 +49,46 @@ class TrafficFeatures:
             self.lanelet_lengths[lanelet_id] = lanelet.distance
 
     def update_road_features(self):
-        possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_pos])
+        # Create LaneStatus message
         ls = LaneStatus()
         ls.isMultiLane = False
-        ls.isRightLaneAvailable = False
-        ls.isLeftLaneAvailable = False
-        if len(possible_ids) == 0:
-            print("Car is not on street. Abort.")
+        ls.rightLaneId = -1
+        ls.leftLaneId = -1
+
+        # find lanelet id. Only lanelets that are on the global path are considered.
+        possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_pos])
+        if len(possible_ids) == 0:  # no id found
+            rospy.loginfo("Car is not on street. Abort.")
+            ls.currentLaneId = -1
+            self.lane_status_pub.publish(ls)
             return
+
+        current_lanelet_id = -1
         for lanelet_id in possible_ids[0]:
-            if lanelet_id in self.adjacent_lanelets_flattened:
-                lane = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
-                if lanelet_id in self.intersection_lanelet_ids:
-                    distance = np.inf
-                else:
-                    distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
-                    idx = np.argmin(distances_to_center_vertices)
-                    distance = self.lanelet_lengths[lanelet_id][-1] - self.lanelet_lengths[lanelet_id][idx]
-                    if lane.adj_left_same_direction:
-                        ls.isMultiLane = True
-                        ls.isLeftLaneAvailable = True
-                    if lane.adj_right_same_direction:
-                        ls.isMultiLane = True
-                        ls.isRightLaneAvailable = True
-                self.distance_pub.publish(distance)
-                self.lane_status_pub.publish(ls)
-                return
+            if lanelet_id in self.adjacent_lanelets_flattened:  # check if lanelet is on global path
+                current_lanelet_id = lanelet_id
+                ls.currentLaneId = current_lanelet_id
+                break
+
+        lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)
+        if lane is None:
+            distance = 0
+        else:
+            if current_lanelet_id in self.intersection_lanelet_ids:
+                distance = np.inf
+            else:
+                distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
+                idx = np.argmin(distances_to_center_vertices)
+                distance = self.lanelet_lengths[current_lanelet_id][-1] - self.lanelet_lengths[current_lanelet_id][idx]
+                if lane.adj_left_same_direction:
+                    ls.isMultiLane = True
+                    ls.leftLaneId = lane.adj_left
+                if lane.adj_right_same_direction:
+                    ls.isMultiLane = True
+                    ls.rightLaneId = lane.adj_right
+
+        self.distance_pub.publish(distance)
+        self.lane_status_pub.publish(ls)
 
     def run(self):
         """
@@ -89,7 +103,6 @@ class TrafficFeatures:
                 r.sleep()
             except rospy.ROSInterruptException:
                 pass
-
 
 
 def main():
