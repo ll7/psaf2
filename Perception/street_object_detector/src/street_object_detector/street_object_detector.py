@@ -31,7 +31,7 @@ class StreetObjectDetector:
         self.minimal_object_size_for_detection = 20
         
         # OCR settings
-        self.ocr_tesseract_configs = [ "--psm 9 --oem 1", "--psm 13 --oem 1" ]
+        self.ocr_tesseract_configs = [ "--psm 4 --oem 1", "--psm 6 --oem 1", "--psm 9 --oem 1", "--psm 11 --oem 1", "--psm 13 --oem 1" ]
         self.ocr_preprocess_tasks = "tb" # t for thresholding, b for blurring
         self.ocr_resize_to = 100 # ocr resizes input image to that size
         
@@ -143,17 +143,6 @@ class StreetObjectDetector:
                                      fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
         else:
             img_resized = cv2.resize(img_sem, (width_rgb, height_rgb), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
-            
-        #height_resized, width_resized, channels_resized = img_resized.shape
-        #new_img_sem = np.zeros((height_rgb, width_rgb, 3), np.uint8)
-        #x_offset = int((width_rgb - width_resized) / 2)
-        #y_offset = int((height_rgb - height_resized) / 2)
-        
-		    # put black bars on the top and the bottom of the semantic segmentation image (if ratio_width < ratio_height)
-		    # or on the left and right side (if ratio_width < ratio_height)
-        #new_img_sem[y_offset:y_offset + height_resized, x_offset:x_offset + width_resized] = img_resized
-        
-        #return new_img_sem
         return img_resized
         
 
@@ -168,8 +157,6 @@ class StreetObjectDetector:
         """
 
         img_sem = self.resize_semantic_segmentation_image(img_sem, img_rgb)
-        cv2.imshow("sem", img_sem)
-        cv2.waitKey(1)
         height, width, channels = img_sem.shape
             
         detections = PerceptionInfo()
@@ -179,7 +166,7 @@ class StreetObjectDetector:
         stop_img = np.zeros((height, width, channels), np.uint8)
         
         rgb_height = img_rgb.shape[0]
-        border_height = int((rgb_height - height) / 2)
+        border_height = int((rgb_height - height) / 2) # in case img_sem and img_rgb are of different height, calculate the offset to add to the following y coordinates
         
         street_objects = {}
         
@@ -193,12 +180,12 @@ class StreetObjectDetector:
                 for w in range(int(offset[3] * width), width - int(offset[1] * width)):
                     try:
                         if np.array_equal(img_sem[h, w], color):
+                        
+                            # extract the pixels that form a block of that color
                             (street_object_image, img_sem) = self.get_block_by_pixel(img_rgb, img_sem, color, h, w, border_height)
                             
                             # valid result?
                             if not street_object_image is None:
-                                cv2.imshow("sign", street_object_image)
-                                cv2.waitKey(1)
                                 street_objects[color_key]["count"] += 1
                                 street_objects[color_key]["objects"].append([ round(w / width, 2), round((h + border_height) / rgb_height, 2), street_object_image.copy() ])
                                     
@@ -208,17 +195,22 @@ class StreetObjectDetector:
                         
             # if there have been found any pixel blocks of interest, return its detection
             if street_objects[color_key]["count"] > 0:
+            
                 if color_key == "street_signs":
                     for (x_rel, y_rel, street_sign_rgb) in street_objects[color_key]["objects"]:
                         ocr_texts = []
                         
+                        # execute all defined tesseract configurations and yield their returned values
                         for tesseract_config in self.ocr_tesseract_configs:
-                            ocr_texts.append(self.get_ocr_text(street_sign_rgb, tesseract_config, self.ocr_preprocess_tasks, self.ocr_resize_to))
+                            ocr_texts.append(self.get_ocr_text(street_sign_rgb, tesseract_config, self.ocr_preprocess_tasks, self.ocr_resize_to, self.speed_limit_replacements))
                     
                         recognized_speed_limit = None
+                        
                         for ocr_text in ocr_texts:
+                            # cut out non-digit characters
                             recognized_number = ''.join([ i for i in ocr_text.split() if i.isdigit() ])
                             
+                            # search for valid values and apply the minimum speed limit
                             if recognized_number in self.speed_limit_values and (recognized_speed_limit is None or int(recognized_number) < int(recognized_speed_limit)):
                                 recognized_speed_limit = recognized_number
                                 
@@ -241,7 +233,19 @@ class StreetObjectDetector:
 
         return detections
         
-    def get_ocr_text(self, street_sign_rgb, tesseract_config, preprocess_tasks, resize_to):
+        
+    def get_ocr_text(self, street_sign_rgb, tesseract_config, preprocess_tasks, resize_to, replacement_rules):
+        """
+        Extracts text from a given image by calling pytesseract.
+        
+        :param street_sign_rgb: the image to extract text from
+        :param tesseract_config: the tesseract config string, e.g. "--psm 13"
+        :param preprocess_tasks: which preprocess tasks should be executed, possible values: "t" for thresholding, "b" for blurring (or both)
+        :param resize_to: resize the preprocessed image to a specific size before calling the OCR
+        :param replacement_rules: a dictionary of symbols to be replaced by another symbol, e.g. { "$": "9" }
+        :return: the extracted text
+        """
+        
         gray = cv2.cvtColor(street_sign_rgb, cv2.COLOR_BGR2GRAY)
         
         if resize_to != 0:
@@ -251,17 +255,14 @@ class StreetObjectDetector:
             gray = cv2.resize(gray, (new_width, new_height))
 
         if "b" in preprocess_tasks:
-        	gray = cv2.medianBlur(gray, 3)
+        	gray = cv2.medianBlur(gray, 3)  # apply blurring
         if "t" in preprocess_tasks:
-        	gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 1)
-        	
-        cv2.imshow("ocr", gray)
-        cv2.waitKey(1)
+        	gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 1) # apply thresholding
         	
         text = pytesseract.image_to_string(gray, config=tesseract_config, lang='eng')
-        text = text.strip()
+        text = text.strip() # cut off whitespace
         
-        for replacement in self.speed_limit_replacements:
+        for replacement in replacement_rules: # replace unwanted characters
             text = text.replace(replacement[0], replacement[1])
         
         return text
