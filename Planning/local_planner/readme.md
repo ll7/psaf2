@@ -14,9 +14,9 @@ The generated local path is then published to /psaf/ego_vehicle/localPath.
 
 ## How to call the service from shell?
 ````shell
-rosservice call /update_local_path "{keyword = value}"
+rosservice call update_local_path "{keyword: value}"
 e.g.: 
-rosservice call /update_local_path "{change_lane_right = true}"
+rosservice call update_local_path "{change_lane_right: true}"
 ````
 
 ## How to call the service from python code?
