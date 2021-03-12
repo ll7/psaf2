@@ -24,11 +24,16 @@ class StreetObjectDetector:
         self.role_name = role_name
         self.bridge = CvBridge()
         
+        self.rgb_img = None
+        self.semantic_segmentation_img = None
+        
         # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
-        self.minimal_object_size_for_detection = 15
+        self.minimal_object_size_for_detection = 20
         
         # OCR settings
-        self.tesseract_config = "--psm 11 --oem 1"
+        self.ocr_tesseract_configs = [ "--psm 9 --oem 1", "--psm 13 --oem 1" ]
+        self.ocr_preprocess_tasks = "tb" # t for thresholding, b for blurring
+        self.ocr_resize_to = 100 # ocr resizes input image to that size
         
         # some letters are not detected correctly by tesseract, so replace them accordingly
         self.speed_limit_replacements = [
@@ -43,12 +48,10 @@ class StreetObjectDetector:
                                     [ '}', '' ],
                                     [ '8', '9' ]
                                 ]
+        self.speed_limit_values = [ '30', '60', '90' ]
         
-        self.rgb_img = None
-        self.semantic_segmentation_img = None
-        
-        # an object must contain at least this amount of pixels in the semantic segmentation camera before it will be passed to further recognition tasks
-        self.minimal_object_size_for_detection = 20
+        # minimum count of pixels of the dominant color for traffic light color detection
+        self.traffic_light_pixel_count_threshold = 5
 
         # COLOR SETTINGS (B, R, G) (have to be numpy arrays!)
         self.semantic_street_signs_color = np.array([ 0, 220, 220 ], np.uint8)
@@ -57,14 +60,20 @@ class StreetObjectDetector:
         
         # There are dead areas in the camera's field of view where street signs and traffic lights can be ignored
         # OFFSET: [top, right, bottom, left]
-        self.semantic_street_signs_offset = [0.2, 0, 0.2, 0.5]
-        self.semantic_traffic_light_offset = [0, 0.3, 0.4, 0.3]
+        self.semantic_street_signs_offset = [0, 0, 0, 0.5]
+        self.semantic_traffic_light_offset = [0, 0.35, 0.7, 0.35]
+        
+        # array of offsets
+        self.semantic_segment_search_offsets = {
+                                        'street_signs': self.semantic_street_signs_offset,
+                                        'traffic_lights': self.semantic_traffic_light_offset
+                                    }
 
         # array of colors that should be extracted in blocks
-        self.semantic_segment_search_colors = [ 
-                                        self.semantic_street_signs_color,
-                                        self.semantic_traffic_light_color
-                                    ]
+        self.semantic_segment_search_colors = {
+                                        'street_signs': self.semantic_street_signs_color,
+                                        'traffic_lights': self.semantic_traffic_light_color
+                                    }
 
         # SUBSCRIBERS
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
@@ -135,16 +144,17 @@ class StreetObjectDetector:
         else:
             img_resized = cv2.resize(img_sem, (width_rgb, height_rgb), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
             
-        height_resized, width_resized, channels_resized = img_resized.shape
-        new_img_sem = np.zeros((height_rgb, width_rgb, 3), np.uint8)
-        x_offset = int((width_rgb - width_resized) / 2)
-        y_offset = int((height_rgb - height_resized) / 2)
+        #height_resized, width_resized, channels_resized = img_resized.shape
+        #new_img_sem = np.zeros((height_rgb, width_rgb, 3), np.uint8)
+        #x_offset = int((width_rgb - width_resized) / 2)
+        #y_offset = int((height_rgb - height_resized) / 2)
         
 		    # put black bars on the top and the bottom of the semantic segmentation image (if ratio_width < ratio_height)
 		    # or on the left and right side (if ratio_width < ratio_height)
-        new_img_sem[y_offset:y_offset + height_resized, x_offset:x_offset + width_resized] = img_resized
+        #new_img_sem[y_offset:y_offset + height_resized, x_offset:x_offset + width_resized] = img_resized
         
-        return new_img_sem
+        #return new_img_sem
+        return img_resized
         
 
     def detect_street_objects(self, img_rgb, img_sem):
@@ -157,140 +167,107 @@ class StreetObjectDetector:
         :return: If possible, the detection as an instance of PerceptionInfo; None otherwise
         """
 
-        if img_sem is None or img_rgb is None:
-            return
-
         img_sem = self.resize_semantic_segmentation_image(img_sem, img_rgb)
+        cv2.imshow("sem", img_sem)
+        cv2.waitKey(1)
         height, width, channels = img_sem.shape
-
-        street_sign_counter = 0
-        traffic_light_counter = 0
             
         detections = PerceptionInfo()
         detections.objects = []
         detections.values = []
         
-        traffic_lights_detected = []
-        street_signs_detected = []
-        
         stop_img = np.zeros((height, width, channels), np.uint8)
         
-        # search for the next pixel of a street sign
-        for h in range(height):
-            for w in range(width):
-                # if one pixel's color is in semantic_segment_search_colors, get the whole block
-                try:
-                    for search_color in self.semantic_segment_search_colors:
-                        if np.array_equal(img_sem[h, w], search_color):
+        rgb_height = img_rgb.shape[0]
+        border_height = int((rgb_height - height) / 2)
+        
+        street_objects = {}
+        
+        # iterate through the defined colors to search for
+        for color_key in self.semantic_segment_search_colors.keys():
+            color = self.semantic_segment_search_colors[color_key]
+            offset = self.semantic_segment_search_offsets[color_key]
+            street_objects[color_key] = { "count": 0, "objects": [] }
             
-                            color_found = img_sem[h, w].copy()
-                            img_sem[h, w] = self.semantic_replace_by_color
-                            
-                                                        
-                            if np.array_equal(color_found, self.semantic_street_signs_color):
-                                if not self.check_image_offset(h, w, self.semantic_street_signs_offset):
-                                    continue
-                            if np.array_equal(color_found, self.semantic_traffic_light_color):
-                                if not self.check_image_offset(h, w, self.semantic_traffic_light_offset):
-                                    continue
-                            
-                            
-                            (street_sign_image, img_sem) = self.get_block_by_pixel(img_rgb, img_sem, color_found, h, w, height, width)
+            for h in range(int(offset[0] * height), height - int(offset[2] * height)):
+                for w in range(int(offset[3] * width), width - int(offset[1] * width)):
+                    try:
+                        if np.array_equal(img_sem[h, w], color):
+                            (street_object_image, img_sem) = self.get_block_by_pixel(img_rgb, img_sem, color, h, w, border_height)
                             
                             # valid result?
-                            if not street_sign_image is None:
-                                if np.array_equal(color_found, self.semantic_street_signs_color):
-                                    street_sign_counter += 1
-                                    street_signs_detected.append([ round(w / width, 2), round(h / height, 2), street_sign_image.copy() ])
-                                if np.array_equal(color_found, self.semantic_traffic_light_color):
-                                    traffic_light_counter += 1
-                                    # store relative x and y pos with cut out rgb image
-                                    traffic_lights_detected.append([ round(w / width, 2), round(h / height, 2), street_sign_image.copy() ])
-                except Exception as e:
-                    print_exc()
-                    pass
-            
-        # if there have been found any pixel blocks of interest, call darknet and return its detection
-        if street_sign_counter > 0:
-            for (x_rel, y_rel, street_sign_rgb) in street_signs_detected:
-                gray = cv2.cvtColor(street_sign_rgb, cv2.COLOR_RGB2GRAY)
-                resize_to = 100
-                preprocess = "tb"
-                
-                if resize_to != 0:
-                    resize_factor = resize_to / gray.shape[1]
-                    new_width = int(gray.shape[1] * resize_factor)
-                    new_height = int(gray.shape[0] * resize_factor)
-                    gray = cv2.resize(gray, (new_width, new_height))
-            
-                if "b" in preprocess:
-                	gray = cv2.medianBlur(gray, 3)
-                if "t" in preprocess:
-                	gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 1)
-                	
-                text = pytesseract.image_to_string(gray, config="--psm 13", lang='eng')
-                text = text.strip()
-                
-                for replacement in self.speed_limit_replacements:
-                    text = text.replace(replacement[0], replacement[1])
-                recognized_number = ''.join([ i for i in text.split() if i.isdigit() ])
+                            if not street_object_image is None:
+                                cv2.imshow("sign", street_object_image)
+                                cv2.waitKey(1)
+                                street_objects[color_key]["count"] += 1
+                                street_objects[color_key]["objects"].append([ round(w / width, 2), round((h + border_height) / rgb_height, 2), street_object_image.copy() ])
+                                    
+                    except Exception as e:
+                        print_exc()
+                        pass
+                        
+            # if there have been found any pixel blocks of interest, return its detection
+            if street_objects[color_key]["count"] > 0:
+                if color_key == "street_signs":
+                    for (x_rel, y_rel, street_sign_rgb) in street_objects[color_key]["objects"]:
+                        ocr_texts = []
+                        
+                        for tesseract_config in self.ocr_tesseract_configs:
+                            ocr_texts.append(self.get_ocr_text(street_sign_rgb, tesseract_config, self.ocr_preprocess_tasks, self.ocr_resize_to))
                     
-                if len(recognized_number) >= 2 and recognized_number in ['30', '60', '90']:
-                    detections.objects.append('speed limit')
-                    detections.values.append(recognized_number)
-                    detections.relative_x_coord.append(x_rel)
-                    detections.relative_y_coord.append(y_rel)
+                        recognized_speed_limit = None
+                        for ocr_text in ocr_texts:
+                            recognized_number = ''.join([ i for i in ocr_text.split() if i.isdigit() ])
+                            
+                            if recognized_number in self.speed_limit_values and (recognized_speed_limit is None or int(recognized_number) < int(recognized_speed_limit)):
+                                recognized_speed_limit = recognized_number
+                                
+                            
+                        if recognized_speed_limit:
+                            detections.objects.append(color_key)
+                            detections.values.append(recognized_speed_limit)
+                            detections.relative_x_coord.append(x_rel)
+                            detections.relative_y_coord.append(y_rel)
             
-        if traffic_light_counter > 0:
-            for (x_rel, y_rel, traffic_light_rgb) in traffic_lights_detected:
-                traffic_light_color = detect_traffic_light_color(traffic_light_rgb)
-                if traffic_light_color != '':
-                    detections.objects.append('traffic_light')
-                    detections.values.append(traffic_light_color)
-                    detections.relative_x_coord.append(x_rel)
-                    detections.relative_y_coord.append(y_rel)
+                if color_key == "traffic_lights":
+                    for (x_rel, y_rel, traffic_light_rgb) in street_objects[color_key]["objects"]:
+                        traffic_light_color = detect_traffic_light_color(traffic_light_rgb, self.traffic_light_pixel_count_threshold)
+                        
+                        if traffic_light_color != '':
+                            detections.objects.append(color_key)
+                            detections.values.append(traffic_light_color)
+                            detections.relative_x_coord.append(x_rel)
+                            detections.relative_y_coord.append(y_rel)
 
         return detections
+        
+    def get_ocr_text(self, street_sign_rgb, tesseract_config, preprocess_tasks, resize_to):
+        gray = cv2.cvtColor(street_sign_rgb, cv2.COLOR_BGR2GRAY)
+        
+        if resize_to != 0:
+            resize_factor = resize_to / gray.shape[1]
+            new_width = int(gray.shape[1] * resize_factor)
+            new_height = int(gray.shape[0] * resize_factor)
+            gray = cv2.resize(gray, (new_width, new_height))
 
-
-    def check_image_offset(self, h, w, offset):
-        """
-        Checks if the the height and width of a pixel are in the given offset
-        :param h: height of the pixel
-        :param w: width of the pixel
-        :return: False if the pixel is located in the offset; True otherwise
-        """
-        # offset top
-        if h < offset[0] * self.semantic_segmentation_img.shape[0]:
-            return False
-        # offset bottom
-        if h > self.semantic_segmentation_img.shape[0] - (offset[2] * self.semantic_segmentation_img.shape[0]):
-            return False
-        # offset left
-        if w < offset[3] * self.semantic_segmentation_img.shape[1]:
-            return False
-        # offset right
-        if w > self.semantic_segmentation_img.shape[1] - (offset[1] * self.semantic_segmentation_img.shape[1]):
-            return False
-        return True
+        if "b" in preprocess_tasks:
+        	gray = cv2.medianBlur(gray, 3)
+        if "t" in preprocess_tasks:
+        	gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 1)
+        	
+        cv2.imshow("ocr", gray)
+        cv2.waitKey(1)
+        	
+        text = pytesseract.image_to_string(gray, config=tesseract_config, lang='eng')
+        text = text.strip()
+        
+        for replacement in self.speed_limit_replacements:
+            text = text.replace(replacement[0], replacement[1])
+        
+        return text
         
         
-    def cut_image_offset(self, image, offset):
-        """
-        Cuts apart the given offset from the given image
-        :param image: the image of which the offset should be cut apart
-        :param offset: the offset which should be cut apart
-        :return: the cut out image
-        """
-        offset_top = round(offset[0] * image.shape[0])
-        offset_bottom = image.shape[0] - round(offset[2] * image.shape[0])
-        offset_left = round(offset[1] * image.shape[1])
-        offset_right = image.shape[1] - round(offset[3] * image.shape[1])
-        image_crop = image[offset_top:offset_bottom, offset_left:offset_right].copy()
-        return image_crop
-        
-        
-    def get_block_by_pixel(self, img_rgb, img_sem, search_color, h_current, w_current, height, width):
+    def get_block_by_pixel(self, img_rgb, img_sem, search_color, h_current, w_current, border_height):
         """
         Finds the object in the image of the segmentation camera with the given color and which includes the pixel at position (h_current,
         w_current), cuts the shape out of the rgb camera image and returns the cut out object
@@ -300,8 +277,7 @@ class StreetObjectDetector:
         :param search_color: the color searched for (BRG!), e.g. [ 0, 220, 220 ]
         :param h_current: x position of the currently observed pixel
         :param w_current: y position of the currently observed pixel
-        :param height: height of img_sem
-        :param width: width of img_sem
+        :param border_height: offset between img_rgb and img_sem (add this value to the img_rgb y position)
         :return: returns a list of the extracted img_sem part in which the latest found object is contained and of the img_sem with
         all the pixels of the current object block converted to semantic_replace_by_color - or it returns None for the extracted
         img_sem part instead, when the block of pixels belonging together is too small and below the configured threshold (e.g. the
@@ -312,7 +288,9 @@ class StreetObjectDetector:
         current_pixels = []
         pixels.append([h_current, w_current])
         current_pixels.append([h_current, w_current])
-        img_sem[h_current, w_current, 2] = 0
+        (height, width, dimensions) = img_sem.shape
+        
+        img_sem[h_current, w_current] = self.semantic_replace_by_color
 
         while len(current_pixels) > 0:
             for pixel in current_pixels:
@@ -367,42 +345,27 @@ class StreetObjectDetector:
         new_height = max_height - min_height
         new_width = max_width - min_width
 
-        # create new image for the detected street sign
-        street_sign_image = np.zeros((new_height+1, new_width+1, 3), np.uint8)
-        street_sign_image[:, :] = (255, 255, 255)
+        # create new image for the detected street object
+        street_object_image = np.zeros((new_height+1, new_width+1, 3), np.uint8)
+        street_object_image[:, :] = (255, 255, 255)
 
         # map every pixel of the semantic segmentation image to a 2x2 part of the rgb image (because the rgb
         # resolution is two times the resolution of the semantic segmentation camera)
         for pixel in pixels:
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
-                (pixel[0]), (pixel[1]), 0]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
-                (pixel[0]), (pixel[1]), 1]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
-                (pixel[0]), (pixel[1]), 0]
+            rgb_pixel_y = pixel[0] + border_height
+            street_object_image[(pixel[0] - min_height), (pixel[1] - min_width)] = img_rgb[
+                rgb_pixel_y, (pixel[1])]
 
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
-                (pixel[0]), (pixel[1]), 2]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
-                (pixel[0]), (pixel[1]), 1]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
-                (pixel[0]), (pixel[1]), 2]
+            street_object_image[(pixel[0] - min_height), (pixel[1] - min_width)] = img_rgb[
+                rgb_pixel_y, (pixel[1])]
 
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
-                (pixel[0]), (pixel[1]), 2]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
-                (pixel[0]), (pixel[1]), 1]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
-                (pixel[0]), (pixel[1]), 0]
+            street_object_image[(pixel[0] - min_height), (pixel[1] - min_width)] = img_rgb[
+                rgb_pixel_y, (pixel[1])]
 
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 2] = img_rgb[
-                (pixel[0]), (pixel[1]), 0]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 1] = img_rgb[
-                (pixel[0]), (pixel[1]), 1]
-            street_sign_image[(pixel[0] - min_height), (pixel[1] - min_width), 0] = img_rgb[
-                (pixel[0]), (pixel[1]), 2]
+            street_object_image[(pixel[0] - min_height), (pixel[1] - min_width)] = img_rgb[
+                rgb_pixel_y, (pixel[1])]
 
-        return (street_sign_image, img_sem)
+        return (street_object_image, img_sem)
 
 
     def publish_detection(self, detections):
@@ -423,7 +386,7 @@ class StreetObjectDetector:
         
         if detections.objects and type(detections.objects) is list:
             for i in range(len(detections.objects)):
-                if detections.objects[i] == "speed limit":
+                if detections.objects[i] == "street_signs":
                     speed_limit = float(detections.values[i])
                     self.speed_limit_publisher.publish(speed_limit)
 
@@ -435,10 +398,11 @@ class StreetObjectDetector:
         """
         r = rospy.Rate(2)
         while not rospy.is_shutdown():
-            street_object_detections = self.detect_street_objects(self.rgb_img, self.semantic_segmentation_img)
+            if not self.rgb_img is None and not self.semantic_segmentation_img is None:
+                street_object_detections = self.detect_street_objects(self.rgb_img, self.semantic_segmentation_img)
 
-            if street_object_detections:
-            	self.publish_detection(street_object_detections)
+                if street_object_detections:
+                	self.publish_detection(street_object_detections)
             try:
                 r.sleep()
             except rospy.ROSInterruptException:

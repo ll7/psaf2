@@ -1,17 +1,16 @@
 import cv2
 import numpy as np
 
-def detect_traffic_light_color(img):
-
+def detect_traffic_light_color(img, pixel_count_threshold):
     ## convert to hsv
     frame_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
     # red represents two regions in the HSV space
-    lower_red = np.array([0, 85, 110], dtype="uint8")
+    lower_red = np.array([0, 50, 50], dtype="uint8")
     upper_red = np.array([15, 255, 255], dtype="uint8")
 
     # red in the range of purple hue
-    lower_violet = np.array([165, 85, 110], dtype="uint8")
+    lower_violet = np.array([140, 50, 50], dtype="uint8")
     upper_violet = np.array([180, 255, 255], dtype="uint8")
 
     #red mask
@@ -21,40 +20,27 @@ def detect_traffic_light_color(img):
     red_mask_full = red_mask_orange + red_mask_violet 
 
     # green
-    lower_green = np.array([40, 85, 110], dtype="uint8")
-    upper_green = np.array([91, 255, 255], dtype="uint8")
+    lower_green = np.array([35, 85, 110], dtype="uint8")
+    upper_green = np.array([70, 255, 255], dtype="uint8")
     green_mask = cv2.inRange(frame_hsv, lower_green, upper_green)
 
 
     # yellow
-    lower_yellow = np.array([22, 93, 0], dtype="uint8")
-    upper_yellow = np.array([45, 255, 255], dtype="uint8")
+    lower_yellow = np.array([20, 50, 50], dtype="uint8")
+    upper_yellow = np.array([30, 255, 255], dtype="uint8")
     yellow_mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow)
-
-    output_img = frame_hsv.copy()
-    output_img[np.where(red_mask_full == 0) and np.where(green_mask == 0) and np.where(yellow_mask == 0)] = 0
-    output_img[np.where(yellow_mask > 0)] = [255, 0, 0]
-    output_img[np.where(green_mask > 0)] = [0, 255, 0]
-    output_img[np.where(red_mask_full > 0)] = [0, 0, 255]
-    #print(np.average(output_img))
-    average_pixel = np.average(output_img, axis=(0, 1))
-    average_pixel_red = np.average(img, axis=(0, 1))
-
-    traffic_light_color = ''
- 
-    if (average_pixel[1]>average_pixel[0]) and (average_pixel[1]>average_pixel[2]):
-        traffic_light_color = 'green'  
-    elif (average_pixel_red[0]>average_pixel_red[1]) and (average_pixel_red[0]>average_pixel_red[2]):
-        traffic_light_color = 'red'
-    elif (average_pixel[2]>average_pixel[0]) and (average_pixel[2]>average_pixel[1]):
-        traffic_light_color = 'yellow'
-    else:
-        #traffic_light_color = 'off' 
-        #traffic_light_color = ','.join(str(x) for x in average_pixel)
-        average_pixel_off = np.average(img, axis=(0, 1))
-        #traffic_light_color = ','.join(str(x) for x in average_pixel_off)
-        traffic_light_color = ''
-
-
-    return traffic_light_color
     
+    red_count = cv2.countNonZero(red_mask_full)
+    green_count = cv2.countNonZero(green_mask)
+    yellow_count = cv2.countNonZero(yellow_mask)
+    
+    max_count = max(red_count, green_count, yellow_count)
+    
+    if max_count < pixel_count_threshold:
+        return ''
+    elif red_count == max_count:
+        return 'red'
+    elif green_count == max_count:
+        return 'green'
+    else:
+        return 'yellow'
