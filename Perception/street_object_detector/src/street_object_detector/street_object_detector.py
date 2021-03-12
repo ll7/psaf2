@@ -1,5 +1,5 @@
 from std_msgs.msg import Bool, Float64, String
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image
 from custom_carla_msgs.msg import PerceptionInfo
 from time import sleep
 import rospy
