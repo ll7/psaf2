@@ -11,18 +11,22 @@ class SwitchLaneLeft(py_trees.behaviour.Behaviour):
     def setup(self, timeout):
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
-        # self.blackboard = py_trees.blackboard.Blackboard()
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        pass
+        self.update_local_path(change_lane_left=True)
+        lane_status = self.blackboard.get("/psaf/ego_vehicle/lane_status")
+        self.lanelet_id_before_lane_change = lane_status.currentLaneId
 
     def update(self):
-        # TODO: Return running while lane switch
-        if  self.update_local_path(change_lane_left=True):
+        lane_status = self.blackboard.get("/psaf/ego_vehicle/lane_status")
+        if lane_status.currentLaneId == -1:
+            return py_trees.common.Status.FAILURE
+        elif self.lanelet_id_before_lane_change != lane_status.currentLaneId:
             return py_trees.common.Status.SUCCESS
         else:
-            return py_trees.common.Status.FAILURE
+            return py_trees.common.Status.RUNNING
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
@@ -35,19 +39,23 @@ class SwitchLaneRight(py_trees.behaviour.Behaviour):
     def setup(self, timeout):
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
-        # self.blackboard = py_trees.blackboard.Blackboard()
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        pass
+        self.update_local_path(change_lane_right=True)
+        lane_status = self.blackboard.get("/psaf/ego_vehicle/lane_status")
+        self.lanelet_id_before_lane_change = lane_status.currentLaneId
 
     def update(self):
-        # TODO: Return running while lane switch
-        if self.update_local_path(change_lane_right=True):
+        lane_status = self.blackboard.get("/psaf/ego_vehicle/lane_status")
+        if lane_status.currentLaneId == -1:
+            return py_trees.common.Status.FAILURE
+        elif self.lanelet_id_before_lane_change != lane_status.currentLaneId:
             return py_trees.common.Status.SUCCESS
         else:
-            return py_trees.common.Status.FAILURE
-        
+            return py_trees.common.Status.RUNNING
+
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
 
