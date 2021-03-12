@@ -11,8 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   DIRECTORY msg
   FILES
-  LaneletMap.msg
-  GlobalPath.msg
+  CommonroadMap.msg
+  GlobalPathLanelets.msg
 )
 
 generate_messages(

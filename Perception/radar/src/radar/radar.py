@@ -2,7 +2,7 @@ import rospy
 import numpy as np
 import math
 from sensor_msgs.msg import PointCloud2
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Bool
 import sensor_msgs.point_cloud2 as pc2
 from nav_msgs.msg import Path, Odometry
 from helper_functions import next_point_on_path
@@ -34,6 +34,7 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         self._odometry_subscriber = rospy.Subscriber(
             "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
         self._points_publisher = rospy.Publisher(f"psaf/{role_name}/radar/points", PointCloud2, queue_size=1)
+        self._slowed_publisher = rospy.Publisher(f"psaf/{role_name}/bt/condition/slowed_by_car_in_front", Bool, queue_size=1)
         
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(0)) #tf buffer length
         tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -61,10 +62,12 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         dist = np.hypot(dist_x,dist_y) 
         if len(dist) > 0:
             self._dist_publisher.publish(min(dist))
+            self._slowed_publisher.publish(True)
             self.current_time = rospy.get_time()
         else:                
             if rospy.get_time() > self.current_time + self.safety_time:
-                self._dist_publisher.publish(self.safety_distance)   
+                self._dist_publisher.publish(self.safety_distance)
+                self._slowed_publisher.publish(False)   
                 self.current_time = rospy.get_time() 
 
     def filter_poses(self, max_dist_to_path, poses_transformed):
