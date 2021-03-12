@@ -53,8 +53,13 @@
   <include file="$(find street_object_detector)/launch/street_object_detector.launch">  </include>
   <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
+<<<<<<< HEAD
   <include file="$(find line_detection)/launch/line_detection.launch">  </include>
 
+=======
+  <include file="$(find radar)/launch/radar.launch"> </include>
+  
+>>>>>>> Konflikt gelöst
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
   <include file="$(find local_planner)/launch/local_planner.launch">  </include>  
