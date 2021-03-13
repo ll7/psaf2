@@ -27,7 +27,6 @@ class IntersectionAhead(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.FAILURE
         else:
             self.dist = bb.data
-        rospy.loginfo(self.dist)
         if self.dist < 30:
             return py_trees.common.Status.SUCCESS
         else:
