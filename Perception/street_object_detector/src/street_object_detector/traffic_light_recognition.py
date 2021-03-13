@@ -20,8 +20,8 @@ def detect_traffic_light_color(img, pixel_count_threshold):
     red_mask_full = red_mask_orange + red_mask_violet 
 
     # green
-    lower_green = np.array([35, 85, 110], dtype="uint8")
-    upper_green = np.array([70, 255, 255], dtype="uint8")
+    lower_green = np.array([40, 85, 110], dtype="uint8")
+    upper_green = np.array([91, 255, 255], dtype="uint8")
     green_mask = cv2.inRange(frame_hsv, lower_green, upper_green)
 
 

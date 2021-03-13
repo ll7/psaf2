@@ -33,18 +33,20 @@ class BehaviorTrafficLights():
         """
         callback on traffic light state
         """
-        x_coord = 1
-        for x in perception.relative_x_coord:
-            coord = abs(0.5 - x)
-            if coord < x_coord:
-                x_coord = coord
-                light_nr = perception.relative_x_coord.index(x)
-        #if ('red' in perception.values) or ('yellow' in perception.values):
-        if len(perception.values) != 0:
-            if (perception.values[light_nr] == 'red') or (perception.values[light_nr] == "yellow"):
-                self.stop()
-        else:
+        #x_coord = 1
+        #for x in perception.relative_x_coord:
+        #    coord = abs(0.5 - x)
+        #    if coord < x_coord:
+        #        x_coord = coord
+        #        light_nr = perception.relative_x_coord.index(x)
+        if ('red' in perception.values) or ('yellow' in perception.values):
+        #if len(perception.values) != 0:
+        #    if (perception.values[light_nr] == 'red') or (perception.values[light_nr] == "yellow"):
+            self.stop()
+            rospy.loginfo(perception.values)
+        elif ('green' in perception.values):
             self.go()
+            rospy.loginfo(perception.values)
 
     def next_intersection_info(self, intersection_dist):
         """
