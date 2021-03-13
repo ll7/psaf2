@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="oncoming_traffic_observer" type="oncoming_traffic_observer.py" name="oncoming_traffic_observer" output="screen">
-  </node>
-
-</launch>
-

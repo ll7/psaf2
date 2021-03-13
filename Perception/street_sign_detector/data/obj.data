@@ -1,5 +1,0 @@
-classes = 8
-train  = data/train.txt
-valid  = data/test.txt
-names = /home/mauriziovolanti/carla-ros-bridge/psaf2/Perception/street_sign_detector/data/obj.names
-backup = backup/

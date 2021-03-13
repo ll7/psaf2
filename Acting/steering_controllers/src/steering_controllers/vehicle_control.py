@@ -20,7 +20,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
     to perform the low level control a vehicle from client side
     """
 
-    def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
+    def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None, args_dist=None):
 
         self._current_speed = 0.0  # Km/h
         self._current_pose = Pose()
@@ -28,14 +28,18 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         self._target_speed = target_speed
 
         if not args_longitudinal:
-            args_longitudinal = {'K_P': 1.0, 'K_D': 0.0, 'K_I': 0.0}
+            args_longitudinal = {'K_P': 0.25, 'K_D': 0.0, 'K_I': 0.1}
         if not args_lateral:
-            args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0}
+            args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
+        if not args_dist:
+            args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
 
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
         self._lat_controller = StanleyLateralController(**args_lateral)
+        self._dist_controller = PIDLongitudinalController(**args_dist)
         self._last_control_time = rospy.get_time()
-
+        self._current_distance = 0
+        self._target_distance = 10
         
         self._route_subscriber = rospy.Subscriber(
             f"/psaf/{role_name}/global_path", Path, self.path_updated)
@@ -51,6 +55,11 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         self.vehicle_control_publisher = rospy.Publisher(
             "/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
+        
+        self.pidpublisher = rospy.Publisher(
+            "/psaf/{}/debug/controller".format(role_name), Float64, queue_size=1)
+
+        self.radarsubscriber = rospy.Subscriber(f"psaf/{role_name}/radar/distance", Float64, self.radar_updated)
 
         
     def run_step(self, target_speed, current_speed):
@@ -64,12 +73,32 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if dt == 0.0:
             dt = 0.000001
         control = CarlaEgoVehicleControl()
-        throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
+
+        min_dist = 4
+        if self._current_speed > min_dist*2:
+            self._target_distance = self._current_speed/2
+        else:
+            self._target_distance = min_dist
+
+        lon = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)        
+        dist = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
+        #print("current_speed: {}".format(self._current_speed))
+        #print("current_dist: {}".format(self._current_distance))
+        if lon < dist:
+            throttle = lon
+        else:
+            throttle = dist
+        self.pidpublisher.publish(throttle)
+
         steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
         self._last_control_time = current_time
-        control.throttle = throttle
+        if throttle >= 0.0:
+            control.throttle = np.clip(throttle, 0.0, 1.0)
+            control.brake = 0.0
+        else:
+            control.brake = -np.clip(throttle, -1.0, 0.0)
+            control.throttle = 0.0
         control.steer = steering
-        control.brake = 0.0
         control.hand_brake = False
         control.manual_gear_shift = False
 
@@ -85,6 +114,9 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
                                         odo.twist.twist.linear.z ** 2) * 3.6
         self._current_pose = odo.pose.pose
     
+    def radar_updated(self, msg):
+        self._current_distance = msg.data
+
     def speed_updated(self, speed):
         """
         callback on new spped

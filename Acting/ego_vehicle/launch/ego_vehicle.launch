@@ -7,7 +7,7 @@
 
   <!-- Ego vehicle -->
   <arg name='role_name' default='ego_vehicle'/>
-  <arg name="vehicle_filter" default='vehicle.bmw.grandtourer'/>
+  <arg name="vehicle_filter" default='vehicle.tesla.model3'/>
   <arg name="sensor_definition_file" default="$(find ego_vehicle)/config/sensors.json"/>
   <arg name="spawn_point" default=""/><!-- use comma separated format "x,y,z,roll,pitch,yaw" -->
   <arg name="spawn_ego_vehicle" default="True" />
@@ -50,8 +50,10 @@
   
   <!-- Perception-->
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
+  <include file="$(find street_object_detector)/launch/street_object_detector.launch">  </include>
+  <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
-
+  
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
   <include file="$(find global_planner)/launch/global_planner_target_publisher.launch">  </include>
