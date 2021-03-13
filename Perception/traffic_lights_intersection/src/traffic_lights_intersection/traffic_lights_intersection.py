@@ -39,14 +39,25 @@ class BehaviorTrafficLights():
         #    if coord < x_coord:
         #        x_coord = coord
         #        light_nr = perception.relative_x_coord.index(x)
-        if ('red' in perception.values) or ('yellow' in perception.values):
+        #if ('red' in perception.values) or ('yellow' in perception.values):
         #if len(perception.values) != 0:
         #    if (perception.values[light_nr] == 'red') or (perception.values[light_nr] == "yellow"):
-            self.stop()
-            rospy.loginfo(perception.values)
-        elif ('green' in perception.values):
+        red = 0
+        green = 0
+        yellow = 0
+        for x in perception.values:
+            if ('red' in perception.values):
+                red = red +1
+            elif ('yellow' in perception.values):
+                yellow = yellow +1
+            else:
+                green = green +1
+        if (green > red) and (green > yellow):
             self.go()
-            rospy.loginfo(perception.values)
+        elif (yellow > red) and (yellow > green):
+            self.check()
+        elif (red> green) and (red > yellow):
+            self.stop()
 
     def next_intersection_info(self, intersection_dist):
         """
@@ -84,6 +95,12 @@ class BehaviorTrafficLights():
         rospy.loginfo("RUN")
         target_speed = 5
         self.target_speed_pub.publish(target_speed)
+    
+    def check(self):
+        """
+        callback on stop distance
+        """
+        rospy.loginfo("CHECK")
 
     def run(self):
         """
