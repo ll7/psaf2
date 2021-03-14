@@ -20,7 +20,7 @@ Subscribes to
 
 Publishes control commands to
 ```
-/carla/{}/vehicle_control_cmd
+/carla/ego_vehicle/vehicle_control_cmd
 
 ```
 ## Controller Parameters
@@ -41,4 +41,4 @@ roslaunch steering_controllers steering_controllers.launch
 ```
 
 ## Authors
-@halentin
+Valentin Höpfner

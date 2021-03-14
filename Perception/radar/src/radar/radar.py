@@ -19,6 +19,7 @@ class Radar(object):  # pylint: disable=too-few-public-methods
     def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
 
         self._current_speed = 0.0
+        self.max_dist_to_path = 2 # max distance a point can be from the path to be considered
         self.safety_time = 2.0 #time to wait if no obstacle detected
         self.safety_distance = 100 #distance to publish if no obstacle detected
         self._current_pose = Pose()
@@ -105,7 +106,7 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         if self.path != None:
             points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))           
             transformed_radar_poses = self.transform_into_map_coords(points)
-            points = self.filter_poses(2, transformed_radar_poses)
+            points = self.filter_poses(self.max_dist_to_path, transformed_radar_poses)
             self.debug_filter_points(points)
             self.calc_dist(points)
             
