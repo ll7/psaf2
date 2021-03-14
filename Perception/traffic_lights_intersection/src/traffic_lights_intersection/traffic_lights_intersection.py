@@ -33,25 +33,17 @@ class BehaviorTrafficLights():
         """
         callback on traffic light state
         """
-        #x_coord = 1
-        #for x in perception.relative_x_coord:
-        #    coord = abs(0.5 - x)
-        #    if coord < x_coord:
-        #        x_coord = coord
-        #        light_nr = perception.relative_x_coord.index(x)
-        #if ('red' in perception.values) or ('yellow' in perception.values):
-        #if len(perception.values) != 0:
-        #    if (perception.values[light_nr] == 'red') or (perception.values[light_nr] == "yellow"):
         red = 0
         green = 0
         yellow = 0
-        for x in perception.values:
-            if ('red' in perception.values):
-                red = red +1
-            elif ('yellow' in perception.values):
-                yellow = yellow +1
-            else:
-                green = green +1
+
+        if ('red' in perception.values):
+            red = red +1
+        elif ('yellow' in perception.values):
+            yellow = yellow +1
+        else:
+            green = green +1
+
         if (green > red) and (green > yellow):
             self.go()
         elif (yellow > red) and (yellow > green):
