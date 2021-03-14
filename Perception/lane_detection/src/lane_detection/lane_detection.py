@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import rospy
 from sensor_msgs.msg import Image
@@ -8,9 +7,8 @@ import cv2
 
 from numpy import array, linspace
 from sklearn.neighbors import KernelDensity
-from matplotlib.pyplot import plot
 from scipy.signal import argrelextrema
-import matplotlib.pyplot as plt
+
 
 class LaneDetector(object):
 
@@ -30,22 +28,6 @@ class LaneDetector(object):
         """
         Run HoughTransformation, cluster lines, compute offset.
         """
-        ## old code
-        # height, width, channels = self._semantic_img.shape
-        # for h in range(height):
-        #     for w in range(width):
-        #         if (self._semantic_img[h, w, :] == [50, 234, 157]).all():
-        #             self._roadmark_img[h,w,:] = [255,255,255]
-        #         else:
-        #             self._roadmark_img[h,w,:] = [0,0,0]
-        # minLineLength = 3
-        # maxLineGap = 10
-        # gray = cv2.cvtColor(self._roadmark_img, cv2.COLOR_BGR2GRAY)
-        # gray = cv2.blur(gray,(2,2))
-        # lines = cv2.HoughLinesP(gray, 3, np.pi / 180, 150, minLineLength, maxLineGap)
-        # plt.imshow(self._roadmark_img)
-        # plt.show()
-
         # cut mask from image
         height, width, channels = self._semantic_img.shape
         pts = np.array([[0,300],[200,150],[400,300]])
@@ -91,11 +73,6 @@ class LaneDetector(object):
                     self.stopline_publisher.publish(distance_to_stop)
                 else:
                     self.stopline_publisher.publish(np.inf)
-
-
-                #delta = self.compute_offset(fangles)
-                #if delta:
-                #    print(str(delta))
 
         try:
             im = self.bridge.cv2_to_imgmsg(self._roadmark_img)
@@ -253,5 +230,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
