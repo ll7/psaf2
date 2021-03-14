@@ -16,7 +16,6 @@ class Approach(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-        #self.target_speed_pub.publish(0)
         self.start_time = datetime.now()
         self.stopline_detected = False
         self.stopline_distance = np.inf
@@ -50,7 +49,7 @@ class Approach(py_trees.behaviour.Behaviour):
 
         # calculate speed depending on the distance to stop line
         if self.stopline_detected and self.stopline_distance != np.inf:
-            v = 30 * self.stopline_distance
+            v = 30 * (self.stopline_distance ** 2)
             self.target_speed_pub.publish(v)
             rospy.loginfo(f"slowed down to {v}")
 

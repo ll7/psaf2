@@ -4,6 +4,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
+import math
 
 from numpy import array, linspace
 from sklearn.neighbors import KernelDensity
@@ -58,13 +59,14 @@ class LaneDetector(object):
             if clusters is not None:
                 cluster_bounds = self.convert_clusters(clusters)
                 lines_cluster = self.group_lines(cluster_bounds, lines)
-                fangles, ypos = self.merge_cluster(lines_cluster)
+                fangles, ypos, lengths = self.merge_cluster(lines_cluster)
 
                 stop_line = False
                 distance_to_stop = 0
                 stopline_threshold = 0.05 * np.pi
+                stopline_len_threshold = 0.35 * self.imgwidth
                 for idx, a in enumerate(fangles):
-                    if abs(a) < stopline_threshold:
+                    if abs(a) < stopline_threshold and lengths[idx] > stopline_len_threshold:
                         stop_line = True
                         distance_to_stop = (self.imgheight - ypos[idx]) / self.imgheight
                         break
@@ -117,8 +119,18 @@ class LaneDetector(object):
 
         fangles = []
         ypos = []
-        for idx, line in enumerate(line_cluster):
-            x1, y1, x2, y2 = line[0][0][0], line[0][0][1], line[0][0][2], line[0][0][3]
+        lengths = []
+        for idx, lines in enumerate(line_cluster):
+            # use longest line
+            x1, y1, x2, y2 = 0, 0, 0, 0
+            length = 0
+            for line in lines:
+                _x1, _y1, _x2, _y2 = line[0][0], line[0][1], line[0][2], line[0][3]
+                _length = math.hypot(_x2 - _x1, _y2 - _y1)
+                if _length > length:
+                    length = _length
+                    x1, y1, x2, y2 = _x1, _y1, _x2, _y2
+            
             if idx > len(colors) -1:
                 color = (0, 255, 255)
             else:
@@ -130,7 +142,8 @@ class LaneDetector(object):
             fangles.append(angle)
             ystar = (y1 + y2) / 2
             ypos.append(ystar)
-        return fangles, ypos
+            lengths.append(length)
+        return fangles, ypos, lengths
 
     def compute_offset(self, fangles):
         """
