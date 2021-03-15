@@ -33,5 +33,4 @@ roslaunch radar radar.launch
 ## Authors
 Wolfgang Lang
 
-
 Valentin Höpfner
