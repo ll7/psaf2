@@ -28,10 +28,12 @@ You can either pass custom controller-parameters to the VehicleController Object
 
 ```python
 ...
-    if not args_longitudinal:
-        args_longitudinal = {'K_P': 1.0, 'K_D': 0.0, 'K_I': 0.0}
-    if not args_lateral:
-        args_lateral = {'k': 0.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0}
+        # speed controller parameters
+        args_longitudinal = {'K_P': 0.25, 'K_D': 0.0, 'K_I': 0.1}
+        # distance control parameters
+        args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
+        # Stanley control parameters
+        args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
 ...
 ``` 
 
