@@ -11,7 +11,7 @@ from sklearn.neighbors import KernelDensity
 from scipy.signal import argrelextrema
 
 
-class LaneDetector(object):
+class LineDetector(object):
 
     def __init__(self, role_name):
             self.bridge = CvBridge()
@@ -233,13 +233,13 @@ class LaneDetector(object):
                 pass
 
 def main():
-    rospy.init_node('lane_detection', anonymous=True)
+    rospy.init_node('line_detection', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
-    lanedetection = LaneDetector(role_name)
+    linedetection = LineDetector(role_name)
     try:
-        lanedetection.run()
+        linedetection.run()
     finally:
-        del lanedetection
+        del linedetection
 
 if __name__ == "__main__":
     main()

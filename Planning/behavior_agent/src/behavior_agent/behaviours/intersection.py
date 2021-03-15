@@ -3,7 +3,6 @@ import numpy as np
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 import rospy
-from datetime import datetime
 
 
 class Approach(py_trees.behaviour.Behaviour):
@@ -16,14 +15,14 @@ class Approach(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-        self.start_time = datetime.now()
+        self.start_time = rospy.get_time()
         self.stopline_detected = False
         self.stopline_distance = np.inf
         rospy.loginfo("start approaching behavior")
 
     def update(self):
         # if no stop line seen within 3 seconds, return success
-        if not self.stopline_detected and (datetime.now() - self.start_time).total_seconds() > 15:
+        if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
             rospy.loginfo("time up for waiting for stop line")
             return py_trees.common.Status.SUCCESS
         
