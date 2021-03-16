@@ -52,6 +52,7 @@
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
   <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
+  <include file="$(find line_detection)/launch/line_detection.launch">  </include>
 
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  

@@ -15,9 +15,44 @@ class Approach(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-        self.target_speed_pub.publish(0)
+        self.start_time = rospy.get_time()
+        self.stopline_detected = False
+        self.stopline_distance = np.inf
+        rospy.loginfo("start approaching behavior")
 
     def update(self):
+        # if no stop line seen within 3 seconds, return success
+        if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
+            rospy.loginfo("time up for waiting for stop line")
+            return py_trees.common.Status.SUCCESS
+        
+        # check for stopline update
+        _dis = self.blackboard.get("/psaf/ego_vehicle/stopline_distance")
+        if _dis is not None:
+            self.stopline_distance = _dis.data
+
+        # check if stop line detected    
+        if self.stopline_detected is False and self.stopline_distance != np.inf:
+            self.stopline_detected = True
+            rospy.loginfo("stopline detected")
+
+        # if no stop line, wait for one to appear or time to run out
+        if not self.stopline_detected:
+            rospy.loginfo("waiting for stop line or time out")
+            return py_trees.common.Status.RUNNING
+
+        # if stop line has been detected and now there is none, we've passed it and need to break immediately
+        if self.stopline_detected and self.stopline_distance == np.inf:
+            rospy.loginfo("ran over stop line")
+            self.target_speed_pub.publish(0)
+
+        # calculate speed depending on the distance to stop line
+        if self.stopline_detected and self.stopline_distance != np.inf:
+            v = 30 * (self.stopline_distance ** 2)
+            self.target_speed_pub.publish(v)
+            rospy.loginfo(f"slowed down to {v}")
+
+        # check if speed is 0
         self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         self.speed =  np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
