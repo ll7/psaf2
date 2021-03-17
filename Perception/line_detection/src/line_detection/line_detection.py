@@ -63,8 +63,8 @@ class LineDetector(object):
 
                 stop_line = False
                 distance_to_stop = 0
-                stopline_threshold = 0.05 * np.pi
-                stopline_len_threshold = 0.35 * self.imgwidth
+                stopline_threshold = 0.15 * np.pi
+                stopline_len_threshold = 0.3 * self.imgwidth
                 for idx, a in enumerate(fangles):
                     if abs(a) < stopline_threshold and lengths[idx] > stopline_len_threshold:
                         stop_line = True
@@ -137,8 +137,8 @@ class LineDetector(object):
                 color = colors[idx]
             cv2.line(self._roadmark_img,(x1,y1),(x2,y2),color,3)
             angle = np.arctan2(y2-y1,x2-x1)
-            if angle < 0:
-                angle += np.pi
+            #if angle < 0:
+            #    angle += np.pi
             fangles.append(angle)
             ystar = (y1 + y2) / 2
             ypos.append(ystar)

@@ -78,12 +78,13 @@ def grow_a_tree(role_name):
                                                         ])
                                                     ])
                                                 ])),
-                                                Sequence("Back to Right Lane", children=[
-                                                    behaviours.road_features.RightLaneAvailable("Right Lane Available"),
-                                                    behaviours.traffic_objects.NotSlowedByCarInFrontRight("Not Slowed By Car in Front Right?"),
-                                                    behaviours.traffic_objects.WaitRightLaneFree("Wait for Right Lane Free"),
-                                                    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
-                                                ])
+                                                # dont turn back to right lane
+                                                #Sequence("Back to Right Lane", children=[
+                                                #    behaviours.road_features.RightLaneAvailable("Right Lane Available"),
+                                                #    behaviours.traffic_objects.NotSlowedByCarInFrontRight("Not Slowed By Car in Front Right?"),
+                                                #    behaviours.traffic_objects.WaitRightLaneFree("Wait for Right Lane Free"),
+                                                #    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+                                                #])
                                             ]),
 
                                             behaviours.maneuvers.Cruise("Cruise")   

@@ -2,6 +2,8 @@ import py_trees
 import numpy as np
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
+from custom_carla_msgs.srv import UpdateLocalPath
+
 import rospy
 
 
@@ -11,13 +13,18 @@ class Approach(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        rospy.wait_for_service('update_local_path')
+        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
+        rospy.loginfo("Approaching Intersection")
+        self.update_local_path(approach_intersection=True)
         self.start_time = rospy.get_time()
         self.stopline_detected = False
         self.stopline_distance = np.inf
+        self.target_speed_pub.publish(30.0)
         rospy.loginfo("start approaching behavior")
 
     def update(self):
@@ -25,13 +32,13 @@ class Approach(py_trees.behaviour.Behaviour):
         if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
             rospy.loginfo("time up for waiting for stop line")
             return py_trees.common.Status.SUCCESS
-        
+
         # check for stopline update
         _dis = self.blackboard.get("/psaf/ego_vehicle/stopline_distance")
         if _dis is not None:
             self.stopline_distance = _dis.data
 
-        # check if stop line detected    
+        # check if stop line detected
         if self.stopline_detected is False and self.stopline_distance != np.inf:
             self.stopline_detected = True
             rospy.loginfo("stopline detected")
@@ -70,13 +77,21 @@ class Wait(py_trees.behaviour.Behaviour):
         super(Wait, self).__init__(name)
 
     def setup(self, timeout):
+        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
+        self.target_speed_pub.publish(0)
 
     def update(self):
-        return py_trees.common.Status.SUCCESS
+        self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
+        self.speed =  np.sqrt(
+            self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
+        if self.speed < 5:
+            return py_trees.common.Status.SUCCESS
+        else:
+            return py_trees.common.Status.RUNNING
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
@@ -88,16 +103,19 @@ class Enter(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        rospy.wait_for_service('update_local_path')
+        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
+        self.blackboard = py_trees.blackboard.Blackboard()
+        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
         return True
 
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
-        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
-        self.target_speed_pub.publish(30.0)
+        self.update_local_path(leave_intersection=True)
+        self.target_speed_pub.publish(50.0)
 
     def update(self):
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
-        speed =  np.sqrt(
+        speed = np.sqrt(
             odo.twist.twist.linear.x ** 2 + odo.twist.twist.linear.y ** 2 + odo.twist.twist.linear.z ** 2)*3.6
         if speed > 10:
             return py_trees.common.Status.SUCCESS
