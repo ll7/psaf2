@@ -24,6 +24,7 @@ class Approach(py_trees.behaviour.Behaviour):
         self.start_time = rospy.get_time()
         self.stopline_detected = False
         self.stopline_distance = np.inf
+        self.target_speed_pub.publish(30.0)
         rospy.loginfo("start approaching behavior")
 
     def update(self):
