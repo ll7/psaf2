@@ -110,51 +110,18 @@ class StreetObjectDetector:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print_exc()
-
-
-    def resize_semantic_segmentation_image(self, img_sem, img_rgb):
-        """
-        Scales semantic segmentation image to the dimensions of the RGB image in case they are not identically to get a correct mapping
-        :param img_sem: image of the semantic segmentation camera
-        :param img_rgb: image of the RGB camera
-        :return: scaled semantic segmentation image
-        """
-        height_rgb, width_rgb, channels_rgb = img_rgb.shape
-        height_sem, width_sem, channels_sem = img_sem.shape
-        ratio_height = height_rgb / height_sem
-        ratio_width = width_rgb / width_sem
-		
-		    # the relative difference between the heigth of the semantic segmentation camera and the height of the rgb camera is 
-		    # smaller than the relative difference between the width
-        if ratio_height < ratio_width:
-			      # apply the height of the rgb image to the semantic segmentation image
-            img_resized = cv2.resize(img_sem, (int(width_sem * ratio_height), int(height_sem * ratio_height)),
-                                     fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
-                                     
-		    # the relative difference between the width of the semantic segmentation camera and the width of the rgb camera is 
-		    # smaller than the relative difference between the heigth
-        elif ratio_width < ratio_height:
-			      # apply the width of the rgb image to the semantic segmentation image
-            img_resized = cv2.resize(img_sem, (int(width_sem * ratio_width), int(height_sem * ratio_width)),
-                                     fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
-        else:
-            img_resized = cv2.resize(img_sem, (width_rgb, height_rgb), fx=0, fy=0, interpolation=cv2.INTER_NEAREST)
-        return img_resized
         
 
     def detect_street_objects(self, img_rgb, img_sem):
         """
         Searches for street objects in the semantic segmentation (img_sem) if present, calls tesseract
-        to read the speed limit of steet signs or the traffic light detection for traffic lights
+        to read the speed limit of steet signs or calls the traffic light detection for traffic lights
 
         :param img_rgb: The RGB camera image
         :param img_sem: The semantic segmentation camera image
-        :return: If possible, the detection as an instance of PerceptionInfo; None otherwise
+        :return: The detections as an instance of PerceptionInfo
         """
 
-        #img_sem_resized = self.resize_semantic_segmentation_image(img_sem, img_rgb)
-        cv2.imshow("sem", img_sem)
-        cv2.waitKey(1)
         sem_height, sem_width, sem_channels = img_sem.shape
             
         detections = PerceptionInfo()
@@ -181,12 +148,10 @@ class StreetObjectDetector:
                         
                         
                             # extract the pixels that form a block of that color
-                            (street_object_image, img_sem, x_rel, y_rel) = self.get_block_by_pixel(img_rgb, img_sem, color, h, w, rgb_sem_scale_factor, border_height)
+                            (street_object_image, img_sem, x_rel, y_rel) = self.get_color_block(img_rgb, img_sem, color, h, w, rgb_sem_scale_factor, border_height)
                             
                             # valid result?
                             if not street_object_image is None:
-                                cv2.imshow("obj", street_object_image)
-                                cv2.waitKey(1)
                                 street_objects[color_key]["count"] += 1
                                 street_objects[color_key]["objects"].append([ x_rel, y_rel, street_object_image.copy() ])
                                     
@@ -270,7 +235,7 @@ class StreetObjectDetector:
         return text
     
         
-    def get_block_by_pixel(self, img_rgb, img_sem, search_color, h_current, w_current, rgb_sem_scale_factor, border_height):
+    def get_color_block(self, img_rgb, img_sem, search_color, h_current, w_current, rgb_sem_scale_factor, border_height):
         """
         Finds the object in the image of the segmentation camera with the given color and which includes the pixel at position (h_current,
         w_current), cuts the shape out of the rgb camera image and returns the cut out object
@@ -280,6 +245,7 @@ class StreetObjectDetector:
         :param search_color: the color searched for (BRG!), e.g. [ 0, 220, 220 ]
         :param h_current: x position of the currently observed pixel
         :param w_current: y position of the currently observed pixel
+        :param rgb_sem_scale_factor: The scale factor of the semantic segmentation image (i.e. the factor between rgb width and semantic segmentation width)
         :param border_height: offset between img_rgb and img_sem (add this value to the img_rgb y position)
         :return: returns a list of the extracted img_sem part in which the latest found object is contained and of the img_sem with
         all the pixels of the current object block converted to semantic_replace_by_color - or it returns None for the extracted
@@ -354,29 +320,6 @@ class StreetObjectDetector:
         return (street_object_image, img_sem, x_rel, y_rel)
 
 
-    def publish_detection(self, detections):
-        """
-        Publish the detections to the relevant topics
-
-        :param detections: Detections as an instance of PerceptionInfo
-        :return:
-        """
-
-        if not type(detections) is PerceptionInfo or not detections or not detections.objects:
-            self.perception_info_publisher.publish(PerceptionInfo())
-            return None
-            
-
-        # if detection actually has a value and is of type PerceptionInfo
-        self.perception_info_publisher.publish(detections)
-        
-        if detections.objects and type(detections.objects) is list:
-            for i in range(len(detections.objects)):
-                if detections.objects[i] == "street_signs":
-                    speed_limit = float(detections.values[i])
-                    self.speed_limit_publisher.publish(speed_limit)
-
-
     def detect_traffic_light_color(self, img, pixel_count_threshold):
         """
         Detects the traffic light color by identifying its dominant color
@@ -427,6 +370,29 @@ class StreetObjectDetector:
             return 'green'
         else:
             return 'yellow'
+
+
+    def publish_detection(self, detections):
+        """
+        Publish the detections to the relevant topics
+
+        :param detections: Detections as an instance of PerceptionInfo
+        :return:
+        """
+
+        if not type(detections) is PerceptionInfo or not detections or not detections.objects:
+            self.perception_info_publisher.publish(PerceptionInfo())
+            return None
+            
+
+        # if detection actually has a value and is of type PerceptionInfo
+        self.perception_info_publisher.publish(detections)
+        
+        if detections.objects and type(detections.objects) is list:
+            for i in range(len(detections.objects)):
+                if detections.objects[i] == "street_signs":
+                    speed_limit = float(detections.values[i])
+                    self.speed_limit_publisher.publish(speed_limit)
 
 
     def run(self):
