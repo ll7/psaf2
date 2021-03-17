@@ -11,7 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   DIRECTORY msg
   FILES
-  PerceptionInfo.msg
   CommonroadMap.msg
   GlobalPathLanelets.msg
 )

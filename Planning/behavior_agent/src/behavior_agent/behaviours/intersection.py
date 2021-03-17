@@ -119,7 +119,7 @@ class Enter(py_trees.behaviour.Behaviour):
 
     def update(self):
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
-        speed =  np.sqrt(
+        speed = np.sqrt(
             odo.twist.twist.linear.x ** 2 + odo.twist.twist.linear.y ** 2 + odo.twist.twist.linear.z ** 2)*3.6
         if speed > 10:
             return py_trees.common.Status.SUCCESS
