@@ -34,9 +34,7 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         if not args_dist:
             args_dist = {'K_P': 0.05, 'K_D': 0.0, 'K_I': 0.01}
             args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
-        if not args_dist:
-            args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
-
+       
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
         self._lat_controller = StanleyLateralController(**args_lateral)
         self._dist_controller = PIDLongitudinalController(**args_dist)
@@ -79,6 +77,10 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+<<<<<<< HEAD
+=======
+>>>>>>> combined distance and speed_limit
+>>>>>>> dca0c2b6ef70ab4256337325a80ba38f0ad42173
 
 >>>>>>> combined distance and speed_limit
         min_dist = 4
@@ -99,13 +101,22 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         self.pidpublisher.publish(throttle)
 
 =======
+<<<<<<< HEAD
 >>>>>>> abstände
         #throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
         throttle = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
 =======
 >>>>>>> combined distance and speed_limit
+=======
+        #throttle = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
+        throttle = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
+        self.pidpublisher.publish(throttle)
+>>>>>>> abstände
+=======
+>>>>>>> dca0c2b6ef70ab4256337325a80ba38f0ad42173
         self.pidpublisher.publish(throttle)
 
+>>>>>>> combined distance and speed_limit
         steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
         self._last_control_time = current_time
         if throttle >= 0.0:
