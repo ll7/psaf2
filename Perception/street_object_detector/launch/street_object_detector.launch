@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="street_object_detector" type="street_object_detector.py" name="street_object_detector" output="screen">
+  </node>
+
+</launch>
+
