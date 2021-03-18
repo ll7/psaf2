@@ -84,7 +84,7 @@
                     "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "fov": 90.0,
                     "image_size_x": 400,
-                    "image_size_y": 300,
+                    "image_size_y": 70,
                     "sensor_tick": 0.05
                 },
                 {
@@ -93,7 +93,7 @@
                     "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
                     "fov": 90.0,
                     "image_size_x": 400,
-                    "image_size_y": 300,
+                    "image_size_y": 70,
                     "sensor_tick": 0.05
                 },
                 {

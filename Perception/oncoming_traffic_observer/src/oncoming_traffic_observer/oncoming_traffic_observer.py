@@ -27,6 +27,9 @@ class OncomingTrafficObserver:
         self.last_min_distance_threshold = 1    # threshold in m/s
         self.last_min_distance_time = None
         
+        self.offset_height = 0.0
+        self.offset_width = 0.45
+        
         # SUBSCRIBERS
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semantic_segmentation_image_updated)
@@ -52,10 +55,7 @@ class OncomingTrafficObserver:
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "32FC1")
             cv_image_array = np.array(cv_image, dtype = np.dtype('f8'))
-            #cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
             self.depth_image = cv_image_array
-            #cv2.imshow("depth", cv_image_array)
-            #cv2.waitKey(1)
         except CvBridgeError as e:
             print_exc()
             
@@ -65,11 +65,20 @@ class OncomingTrafficObserver:
             return (None, None)
 
         min_distance = None
+        depth_car_pixels = None
         approximation_velocity = 0
-	
         height, width, channels = img_sem.shape
-        for h in range(int(height * 0.25), height):
-            for w in range(int(width * 0.45)):
+        
+        img_sem = np.asarray(img_sem[ int(height * self.offset_height) : , 0 : int(width * self.offset_width) ])
+        img_dep = img_dep[ int(height * self.offset_height) : , 0 : int(width * self.offset_width) ]
+        	
+        indices = np.where(np.all(img_sem == self.vehicles_color, axis=-1))
+        depth_car_pixels = np.take(img_dep, indices)
+        if not depth_car_pixels is None and depth_car_pixels.size > 0:
+            min_distance = np.min(depth_car_pixels)
+        '''
+        for h in range(int(height * self.offset_height), height):
+            for w in range(int(width * self.offset_width)):
                 if np.array_equal(img_sem[h, w], self.vehicles_color):
                     depth_pixel = img_dep[h, w]
                     #normalized = (depth_pixel[2] + depth_pixel[1] * 256 + depth_pixel[0] * 256 * 256) / (256 * 256 * 256 - 1)
@@ -78,6 +87,7 @@ class OncomingTrafficObserver:
                         min_distance = depth_pixel
                     else:
                         min_distance = min(min_distance, depth_pixel)
+        '''
         
         if min_distance != None and self.last_min_distance_time != None and self.last_min_distance != None and self.last_min_distance > 0 and min_distance > 0:
             carla.Timestamp
@@ -87,7 +97,7 @@ class OncomingTrafficObserver:
             
         if min_distance is None:
             min_distance = 0
-            
+         
         self.last_min_distance_time = get_epochtime_ms()
         self.last_min_distance = min_distance 
             
@@ -106,7 +116,9 @@ class OncomingTrafficObserver:
         r = rospy.Rate(2)
         while not rospy.is_shutdown():
             (distance, approximation_velocity) = self.detect_oncoming_traffic(self.semantic_segmentation_image, self.depth_image)
-            
+            print("------------------------------------------------------------")
+            print(distance)
+            print(approximation_velocity)
             #publish result
             if distance != None and approximation_velocity != None:
                 message = OncomingTrafficObserverMsg()
