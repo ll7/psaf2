@@ -86,8 +86,7 @@ class Lidar(object):
         dist_y = [self._current_pose.position.y - p.pose.position.y for p in points]
         dist = np.hypot(dist_x,dist_y) 
         if len(dist) > 0:
-            return min(dist)
-           
+            return min(dist)           
         else:                
             return 0               
     
@@ -108,7 +107,7 @@ class Lidar(object):
         if self.left_lanelet != None:
             filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)            
             if len(filtered_poses_left) > 0: 
-                dist = calc_dist(filtered_poses_left)               
+                dist = self.calc_dist(filtered_poses_left)               
                 if dist > 0:
                     self.obstacle_on_left_lane_pub.publish(dist) 
                 else:
@@ -117,7 +116,7 @@ class Lidar(object):
         if self.right_lanelet != None:
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
             if len(filtered_poses_right) > 0:
-                 dist = calc_dist(filtered_poses_right)               
+                dist = selfcalc_dist(filtered_poses_right)               
                 if dist > 0:
                     self.obstacle_on_right_lane_pub.publish(dist) 
                 else:

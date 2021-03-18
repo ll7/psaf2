@@ -51,9 +51,7 @@
   <!-- Perception-->
   <include file="$(find commonroad_map_provider)/launch/commonroad_map_provider.launch">  </include>
   <include file="$(find street_object_detector)/launch/street_object_detector.launch">  </include>
-  <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
-  <include file="$(find lidar)/launch/lidar.launch"> </include>
   <include file="$(find line_detection)/launch/line_detection.launch">  </include>
   <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find lidar)/launch/lidar.launch"> </include>
