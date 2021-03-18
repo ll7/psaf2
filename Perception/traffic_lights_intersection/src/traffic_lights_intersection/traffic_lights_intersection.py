@@ -110,7 +110,7 @@ class BehaviorTrafficLights():
         #rospy.loginfo(str(stop_distance), str(self.stoplinie_dist))
         braking_distance = 70 #pow((self.current_speed/10), 2)
         print("braking_distance:", braking_distance, "stoplinie_dist:", stoplinie_dist, "intersection_distance:", stop_dist_intersec)
-        if braking_distance < stop_distance:
+        if (braking_distance + 1.5) < stop_distance:
             self.go()
         else:
             self.stop()
