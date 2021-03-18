@@ -52,7 +52,7 @@ class BehaviorTrafficLights():
             self.stop()
         elif yellow > red and yellow > green:
             self.check()
-        else:
+        elif green > red and green > yellow:
             self.go()
 
     def next_intersection_info(self, intersection_dist):
