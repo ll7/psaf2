@@ -53,7 +53,7 @@ class Lidar(object):
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
-        self.org_scenario = copy.deepcopy(self.scenario)   
+         
 
     def debug_filter_points(self, points):
         cloud_msg = PointCloud2()
