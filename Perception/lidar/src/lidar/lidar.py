@@ -14,10 +14,9 @@ from geometry_msgs.msg import PoseStamped, Pose
 from commonroad.common.file_reader import CommonRoadFileReader
 #from custom_carla_msgs.msg import GlobalPathLanelets
 
-class Lidar(object):  # pylint: disable=too-few-public-methods
+class Lidar(object):  
     """
-    VehicleController is the combination of two controllers (lateral and longitudinal)
-    to perform the low level control a vehicle from client side
+    Lidar uses lidar-sensor data and scenario.lanelets to check for traffic on right or left lane
     """
 
     def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
