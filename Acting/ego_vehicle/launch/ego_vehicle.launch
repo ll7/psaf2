@@ -53,9 +53,15 @@
   <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find traffic_features)/launch/traffic_features.launch">  </include>
   <include file="$(find lidar)/launch/lidar.launch"> </include>
+<<<<<<< HEAD
   
+=======
+  <include file="$(find line_detection)/launch/line_detection.launch">  </include>
+
+>>>>>>> ca68de499fe9369a895325e9170426e48986d0a3
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  
+  <include file="$(find local_planner)/launch/local_planner.launch">  </include>  
   <include file="$(find global_planner)/launch/global_planner_target_publisher.launch">  </include>
   <include file="$(find behavior_agent)/launch/behavior_agent.launch">  </include>
 
