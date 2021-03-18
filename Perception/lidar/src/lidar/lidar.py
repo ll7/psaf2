@@ -110,13 +110,10 @@ class Lidar(object):
         points = []                
         for p in transformed_lidar_poses:
             dx = [p.pose.position.x - x for x in lanelet.center_vertices[:,0]]
-            dy = [p.pose.position.y - y for y in lanelet.center_vertices[:,1]]
-            #d_test = [x - np.array(p.pose.position.x, p.pose.position.y) for x in lanelet.center_vertices]
+            dy = [p.pose.position.y - y for y in lanelet.center_vertices[:,1]]            
             d = np.hypot(dx,dy)   
-            dist = min(d)
-            #print("got min on lane: \n", dist)
-            if dist < 2:
-                #print("got a obstacle on lane")
+            dist = min(d)           
+            if dist < 2:               
                 points.append(p)
         return points
 
