@@ -19,7 +19,7 @@ class Lidar(object):
     Lidar uses lidar-sensor data and scenario.lanelets to check for traffic on right or left lane
     """
 
-    def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
+    def __init__(self, role_name):
         self._current_speed = 0.0
         self.safety_time = 2.0 #time to wait if no obstacle detected
         self.safety_distance = 100 #distance to publish if no obstacle detected
@@ -34,11 +34,8 @@ class Lidar(object):
 
         self.current_lanelet = None
         self.left_lanelet = None
-        self.right_lanelet = None
-      
-        # self._dist_publisher = rospy.Publisher(f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
-        # self._route_subscriber = rospy.Subscriber(
-        #     f"/psaf/{role_name}/global_path", Path, self.route_updated)
+        self.right_lanelet = None     
+       
         self._odometry_subscriber = rospy.Subscriber(
             "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
         self._points_publisher = rospy.Publisher(f"psaf/{role_name}/lidar/points", PointCloud2, queue_size=1)   
@@ -153,9 +150,8 @@ class Lidar(object):
 
 def main():
     rospy.init_node('lidar', anonymous=True)
-    role_name = rospy.get_param("~role_name", "ego_vehicle")
-    target_speed = rospy.get_param("~target_speed", 0)
-    lidar = Lidar(role_name, target_speed)
+    role_name = rospy.get_param("~role_name", "ego_vehicle")    
+    lidar = Lidar(role_name)
     try:
         lidar.run()
     finally:
