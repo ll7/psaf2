@@ -42,8 +42,8 @@ class Lidar(object):
         self._lidar_subscriber = rospy.Subscriber(
             f"/carla/{role_name}/lidar/lidar1/point_cloud", PointCloud2, self.lidar_updated)
 
-        self.obstacle_on_left_lane_pub = rospy.Publisher(f"/psaf/{self.role_name}/obstacle_on_left_lane", String, queue_size = 1)
-        self.obstacle_on_right_lane_pub = rospy.Publisher(f"/psaf/{self.role_name}/obstacle_on_right_lane", String, queue_size = 1)
+        self.obstacle_on_left_lane_pub = rospy.Publisher(f"/psaf/{self.role_name}/obstacle_on_left_lane", Float64, queue_size = 1)
+        self.obstacle_on_right_lane_pub = rospy.Publisher(f"/psaf/{self.role_name}/obstacle_on_right_lane", Float64, queue_size = 1)
 
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
 
@@ -80,6 +80,16 @@ class Lidar(object):
             print("Error in transformation")                       
 
         return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
+
+    def calc_dist(self, points):               
+        dist_x = [self._current_pose.position.x - p.pose.position.x for p in points]
+        dist_y = [self._current_pose.position.y - p.pose.position.y for p in points]
+        dist = np.hypot(dist_x,dist_y) 
+        if len(dist) > 0:
+            return min(dist)
+           
+        else:                
+            return 0               
     
     def odometry_updated(self, odo):
         """
@@ -89,7 +99,7 @@ class Lidar(object):
                                         odo.twist.twist.linear.y ** 2 +
                                         odo.twist.twist.linear.z ** 2) * 3.6
         self._current_pose = odo.pose.pose
-        self.current_pos = np.array([odo.pose.pose.position.x, odo.pose.pose.position.y])
+        self.current_pos = np.array([odo.pose.pose.position.x, odo.pose.pose.position.y])    
 
     def lidar_updated(self, msg):
         points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))
@@ -97,14 +107,21 @@ class Lidar(object):
         self.get_right_and_left_lanelet()
         if self.left_lanelet != None:
             filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)            
-            if len(filtered_poses_left) > 0:
-                print("got an obstacle on left lane")
-                self.obstacle_on_left_lane_pub.publish("ObstacleLeft")  
+            if len(filtered_poses_left) > 0: 
+                dist = calc_dist(filtered_poses_left)               
+                if dist > 0:
+                    self.obstacle_on_left_lane_pub.publish(dist) 
+                else:
+                    self.obstacle_on_left_lane_pub.publish(None) 
+                
         if self.right_lanelet != None:
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
             if len(filtered_poses_right) > 0:
-                print("got an obstacle on right lane")
-                self.obstacle_on_left_lane_pub.publish("ObstacleRight")  
+                 dist = calc_dist(filtered_poses_right)               
+                if dist > 0:
+                    self.obstacle_on_right_lane_pub.publish(dist) 
+                else:
+                    self.obstacle_on_right_lane_pub.publish(None)   
        
     def filter_lidar_poses(self, lanelet, transformed_lidar_poses):
         points = []                
