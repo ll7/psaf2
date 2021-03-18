@@ -29,9 +29,9 @@ class Approach(py_trees.behaviour.Behaviour):
 
     def update(self):
         # if no stop line seen within 3 seconds, return success
-        if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
-            rospy.loginfo("time up for waiting for stop line")
-            return py_trees.common.Status.SUCCESS
+        #if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
+        #    rospy.loginfo("time up for waiting for stop line")
+        #    return py_trees.common.Status.SUCCESS
 
         # check for stopline update
         _dis = self.blackboard.get("/psaf/ego_vehicle/stopline_distance")
@@ -55,7 +55,7 @@ class Approach(py_trees.behaviour.Behaviour):
 
         # calculate speed depending on the distance to stop line
         if self.stopline_detected and self.stopline_distance != np.inf:
-            v = 30 * (self.stopline_distance ** 2)
+            v = 30 * self.stopline_distance
             self.target_speed_pub.publish(v)
             rospy.loginfo(f"slowed down to {v}")
 
@@ -131,13 +131,20 @@ class Leave(py_trees.behaviour.Behaviour):
         super(Leave, self).__init__(name)
 
     def setup(self, timeout):
+        rospy.wait_for_service('update_local_path')
+        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
+        #self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
+        self.start_time = rospy.get_time()
 
     def update(self):
-        return py_trees.common.Status.SUCCESS
+        if rospy.get_time() - self.start_time > 2:
+            self.update_local_path(leave_intersection=True)
+            return py_trees.common.Status.SUCCESS
+        else:
+            return py_trees.common.Status.RUNNING
            # return py_trees.common.Status.RUNNING
         
     def terminate(self, new_status):

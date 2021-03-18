@@ -72,7 +72,7 @@ class TrafficFeatures:
 
         lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)
         if lane is None:
-            distance = 0
+            distance = np.inf
         else:
             if current_lanelet_id in self.intersection_lanelet_ids:
                 distance = np.inf

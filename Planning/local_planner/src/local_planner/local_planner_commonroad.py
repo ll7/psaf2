@@ -28,9 +28,14 @@ class LocalPlanner:
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.lanelet_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, self.lanelets_received)
+        self.global_path_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path", Path, self.global_path_received)
 
         # add ros publishers
         self.local_path_pub = rospy.Publisher(f"/psaf/{self.role_name}/local_path", Path, queue_size=1, latch=True)
+        self.with_rules = False
+        self.target_pos = (10, 50)
+        self.locked_on_target = False
+        self.global_path_msg = None
 
     def map_received(self, msg):
         self.scenario, _ = CommonRoadFileReader(msg.data).open()
@@ -43,6 +48,9 @@ class LocalPlanner:
 
     def odometry_received(self, msg):
         self.current_pos = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
+
+    def global_path_received(self, msg):
+        self.global_path_msg = msg
 
     def _change_lane(self, current_lanelet, idx_nearest_point, left=False, right=False):
         """
@@ -82,18 +90,22 @@ class LocalPlanner:
         :param req: ROS srv message.
         :return: Created path for next two lanelets.
         """
+        if self.scenario is None or self.adjacent_lanelets_flattened is None:
+            return False
         # resolve ros srv message
         change_lane_left = req.change_lane_left
         change_lane_right = req.change_lane_right
         approach_intersection = req.approach_intersection
         leave_intersection = req.leave_intersection
         path = []
+        self.locked_on_target = False
         # get all possible lanelet ids of current position.
         # In a intersection it is possible that you get more than one lanelet.
         possible_lanelet_ids = self.scenario.lanelet_network.find_lanelet_by_position([np.array(list(self.current_pos))])[0]
         # Use the first lanelet that is also on the previously calculated global path.
         for lane_id in possible_lanelet_ids:
             if lane_id in self.adjacent_lanelets_flattened:
+                rospy.loginfo(f"Current Lanelet: {lane_id}")
                 current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lane_id)
                 distances_to_center_vertices = np.linalg.norm(current_lanelet.center_vertices - self.current_pos,
                                                               axis=1)
@@ -107,8 +119,12 @@ class LocalPlanner:
                     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor
                         if lane_id in sector:
                             break
-                    next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(
-                        self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
+                    try:
+                        next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(
+                            self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
+                    except IndexError:
+                        rospy.loginfo("Local Planner Intersection Approaching: No successor found")
+                        return
                     if next_lanelet.predecessor[0] == lane_id:  # no lane change
                         rospy.loginfo("Keep Lane")
                         path.extend(current_lanelet.center_vertices[idx_nearest_point:])
@@ -119,29 +135,93 @@ class LocalPlanner:
                     rospy.loginfo("Turn")
                     path.extend(next_lanelet.center_vertices[:])  # add center vertices of intersection lanelet
                 elif leave_intersection:
-                    next_lanelet_id = current_lanelet.successor[0]
-                    next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(next_lanelet_id)
-                    path.extend(current_lanelet.center_vertices[idx_nearest_point:])
-                    path.extend(next_lanelet.center_vertices[:])
+                    rospy.loginfo("Leave Intersection")
+                    for successor in current_lanelet.successor:
+                        if successor in self.adjacent_lanelets_flattened:
+                            rospy.loginfo(f"successor lanlet: {successor}")
+                            next_lanelet_id = successor
+                            next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(next_lanelet_id)
+                            path.extend(current_lanelet.center_vertices[idx_nearest_point:])
+                            path.extend(next_lanelet.center_vertices[:])
+                            break
+                    rospy.loginfo("Local Planner Intersection Leaving: No successor found")
                 else:
                     path.extend(current_lanelet.center_vertices[idx_nearest_point:])
 
-        # create ros path message
-        path = np.array(path)
-        path_msg = Path()
-        path_msg.header.frame_id = "map"
-        path_msg.header.stamp = rospy.Time.now()
-        for point in path:
-            pose = PoseStamped()
-            pose.header.frame_id = "map"
-            pose.header.stamp = rospy.Time.now()
-            pose.pose.position.x = point[0]
-            pose.pose.position.y = point[1]
-            pose.pose.position.z = 0
-            path_msg.poses.append(pose)
+        # fallback if no path was created
+        if len(path) == 0:
+            rospy.loginfo("Fallback to global path")
+            self.local_path_pub(self.global_path_msg)
+            return True
+        else:
+            # create ros path message
+            path = np.array(path)
+            path_msg = Path()
+            path_msg.header.frame_id = "map"
+            path_msg.header.stamp = rospy.Time.now()
+            for point in path:
+                pose = PoseStamped()
+                pose.header.frame_id = "map"
+                pose.header.stamp = rospy.Time.now()
+                pose.pose.position.x = point[0]
+                pose.pose.position.y = point[1]
+                pose.pose.position.z = 0
+                path_msg.poses.append(pose)
 
-        self.local_path_pub.publish(path_msg)
-        return True
+            self.local_path_pub.publish(path_msg)
+            return True
+
+    def path_to_target(self):
+        """
+        If mode without rules is activated this method is used to lock on the target position even than the ego vehicle
+        is located on another lane. The direction of the current and the target lane is not considered.
+        :return:
+        """
+        if not self.with_rules and self.adjacent_lanelets is not None and not self.locked_on_target:
+            if np.linalg.norm(self.current_pos - self.target_pos) < 20:
+                possible_lanelet_ids = self.scenario.lanelet_network.find_lanelet_by_position([np.array(list(self.current_pos))])[0]
+                # Use the first lanelet that is also on the previously calculated global path.
+                for lane_id in possible_lanelet_ids:
+                    if lane_id in self.adjacent_lanelets[-1]:
+                        rospy.loginfo("Abkürzen")
+                        self.locked_on_target = True
+                        current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lane_id)
+                        distances_to_center_vertices = np.linalg.norm(current_lanelet.center_vertices - self.current_pos,
+                                                                      axis=1)
+                        idx_nearest_point = np.argmin(distances_to_center_vertices)
+                        path = []
+                        path.extend(current_lanelet.center_vertices[idx_nearest_point:idx_nearest_point+5])
+                        path.append(np.array(self.target_pos, dtype=float))
+                        # create ros path message
+                        path = np.array(path)
+                        path_msg = Path()
+                        path_msg.header.frame_id = "map"
+                        path_msg.header.stamp = rospy.Time.now()
+                        for point in path:
+                            pose = PoseStamped()
+                            pose.header.frame_id = "map"
+                            pose.header.stamp = rospy.Time.now()
+                            pose.pose.position.x = point[0]
+                            pose.pose.position.y = point[1]
+                            pose.pose.position.z = 0
+                            path_msg.poses.append(pose)
+
+                        self.local_path_pub.publish(path_msg)
+                        return
+
+    def run(self):
+        """
+        Control loop
+        :return:
+        """
+        r = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self.scenario:
+                self.path_to_target()
+            try:
+                r.sleep()
+            except rospy.ROSInterruptException:
+                pass
 
 
 if __name__ == "__main__":
@@ -149,4 +229,5 @@ if __name__ == "__main__":
     role_name = rospy.get_param("~role_name", "ego_vehicle")
     lp = LocalPlanner(role_name)
     s = rospy.Service("update_local_path", UpdateLocalPath, lp.update_local_path)  # register ROS-Service
-    rospy.spin()  # Node is entirely based on callbacks.
+    #rospy.spin()  # Node is entirely based on callbacks.
+    lp.run()
