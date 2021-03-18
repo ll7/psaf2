@@ -41,10 +41,12 @@
     <arg name="spawn_point" value="$(arg spawn_point)"/>
     <arg name="spawn_ego_vehicle" value="$(arg spawn_ego_vehicle)" />
   </include>
-  
+
+  <!--
   <include file="$(find carla_manual_control)/launch/carla_manual_control.launch">
     <arg name='role_name' value='$(arg role_name)'/>
   </include>
+  -->
 
   <!-- Add Launchfiles here -->
   

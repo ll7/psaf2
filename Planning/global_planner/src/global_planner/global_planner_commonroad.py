@@ -34,8 +34,8 @@ class GlobalPlanner:
     def __init__(self, role_name):
         self.role_name = role_name
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
-        self.target_sub = rospy.Subscriber(f"/psaf/{self.role_name}/target_point", NavSatFix, self.target_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
+        self.inital_pose_sub = rospy.Subscriber(f"/carla/{self.role_name}/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
         self.inital_pose_sub = rospy.Subscriber(f"/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
         self.sub = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.world_info_received)
 
@@ -48,6 +48,8 @@ class GlobalPlanner:
         self.current_pos = None
         self.current_orientation = None
         self.intersection_lanelet_ids = None
+        self.with_rules = False
+        self.target_pos = (10, 50)
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -57,15 +59,12 @@ class GlobalPlanner:
             rospy.sleep(0.05)
         self.create_global_plan()
 
-    def target_received(self, msg):
-        print("Target Received")
-        self.target_gnss = msg
-
     def init_pose_received(self, pose):
-        print("New Start")
         while self.scenario is None or self.current_orientation is None:
             rospy.sleep(0.05)
         rospy.sleep(0.2)
+        self.target_pos = (rospy.get_param('/competition/goal/position/x', 10), rospy.get_param('/competition/goal/position/y', 50))
+        rospy.loginfo(f"Compute new route from: {self.current_pos} to {self.target_pos}")
         self.create_global_plan()
 
     def odometry_received(self, msg):
@@ -133,10 +132,34 @@ class GlobalPlanner:
 
         self.intersection_lanelet_ids = out_list
 
+    def create_goal_states(self, pos):
+        goal_lanelets = []
+        goal_states = []
+        goal_lanelets.append(self.scenario.lanelet_network.find_lanelet_by_position([np.array(pos)])[0])
+        goal_states.append(State(position=Rectangle(2, 2, center=np.array(pos)), time_step=Interval(1, 200),
+                                 velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2)))
+        if self.with_rules:
+            return goal_states
+
+        for delta in range(-15, 15, 3):
+            for direction in ["x", "y"]:
+                if direction == "x":
+                    shifted_pos = np.array([pos[0] + delta, pos[1]])
+                else:
+                    shifted_pos = np.array([pos[0], pos[1] + delta])
+                try:
+                    id = self.scenario.lanelet_network.find_lanelet_by_position([shifted_pos])[0]
+                    if id not in goal_lanelets and id not in self.intersection_lanelet_ids:
+                        goal_lanelets.append(id)
+                        goal_states.append(
+                            State(position=Rectangle(2, 2, center=shifted_pos), time_step=Interval(1, 200),
+                                  velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2)))
+                except IndexError as e:
+                    print(e)
+        return goal_states
+
     def create_global_plan(self):
-        print("Path creation started")
-        goal_state = State(position=Rectangle(2, 2, center=np.array([10, 50])), time_step=Interval(1, 200), velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2))
-        goal_region = GoalRegion([goal_state])
+        goal_region = GoalRegion(self.create_goal_states(self.target_pos))
 
         yaw = calc_egocar_yaw(self.current_orientation)
         start_state = State(position=np.array([self.current_pos[0], self.current_pos[1]]), time_step=1, velocity=0.0, yaw_rate=0.0, slip_angle=0.0, orientation=yaw)
@@ -153,17 +176,30 @@ class GlobalPlanner:
 
         # we retrieve the first route in the list
         # this is equivalent to: route = list_routes[0]
-        route = candidate_holder.retrieve_first_route()
+        routes, _ = candidate_holder.retrieve_all_routes()
         # print(f"Time: {time.time() -start}")
+        shortest_path = np.inf
+        shortest_route = None
+        if len(routes) > 1:
+            for route in routes:
+                path = route.reference_path
+                len_path = 0
+                for i in range(10, len(path)):
+                    len_path += np.linalg.norm(path[i] - path[i - 10])
+                if len_path < shortest_path:
+                    shortest_path = len_path
+                    shortest_route = route
+        else:
+            shortest_route = routes[0]
+
+        point_route = shortest_route.reference_path
+        point_route = self.sanitize_route(point_route)
 
         lanelet_msg = GlobalPathLanelets()
-        lanelet_msg.lanelet_ids = route.list_ids_lanelets
-        lanelet_msg.adjacent_lanelet_ids = json.dumps(route.retrieve_route_sections())
+        lanelet_msg.lanelet_ids = shortest_route.list_ids_lanelets
+        lanelet_msg.adjacent_lanelet_ids = json.dumps(shortest_route.retrieve_route_sections())
         lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
         self.lanelet_pub.publish(lanelet_msg)
-
-        point_route = route.reference_path
-        point_route = self.sanitize_route(point_route)
 
         path_msg = Path()
         path_msg.header.frame_id = "map"
@@ -220,7 +256,7 @@ class GlobalPlanner:
         # find last point after target position
         #TODO: MAKE DYNAMIC
         for i, point in enumerate(reversed(route)):
-            distance, _ = self.compute_magnitude_angle(point, np.array([10, 50]), self.current_orientation.orientation)
+            distance, _ = self.compute_magnitude_angle(point, np.array(self.target_pos), self.current_orientation.orientation)
 
             if min_distance_end is not None:
                 if distance < min_distance_end:
