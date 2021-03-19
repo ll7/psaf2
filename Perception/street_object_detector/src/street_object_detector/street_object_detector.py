@@ -47,7 +47,7 @@ class StreetObjectDetector:
         self.speed_limit_values = [ '30', '60', '90' ]
         
         # minimum count of pixels of the dominant color for traffic light color detection
-        self.traffic_light_pixel_count_threshold = 5
+        self.traffic_light_pixel_count_threshold = 2
 
         # COLOR SETTINGS (B, R, G) (have to be numpy arrays!)
         self.semantic_street_signs_color = np.array([ 0, 220, 220 ], np.uint8)
@@ -57,7 +57,7 @@ class StreetObjectDetector:
         # There are dead areas in the camera's field of view where street signs and traffic lights can be ignored
         # OFFSET: [top, right, bottom, left]
         self.semantic_street_signs_offset = [0, 0, 0, 0.6]
-        self.semantic_traffic_light_offset = [0, 0.4, 0.70, 0.4]
+        self.semantic_traffic_light_offset = [0, 0.4, 0.5, 0.4]
         
         # array of offsets
         self.semantic_segment_search_offsets = {
@@ -111,8 +111,6 @@ class StreetObjectDetector:
         """
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            cv2.imshow('sem', self.semantic_segmentation_img)
-            cv2.waitKey(1)
         except CvBridgeError as e:
             print_exc()
         
@@ -404,14 +402,14 @@ class StreetObjectDetector:
                     self.speed_limit_publisher.publish(speed_limit)
             # red dominates over yellow and green
             if ('red' in detections.values):
-            		self.traffic_light_publisher.publish('red')
+            	self.traffic_light_publisher.publish('red')
             # yellow dominates over green
             elif ('yellow' in detections.values):
-            		self.traffic_light_publisher.publish('yellow')
+            	self.traffic_light_publisher.publish('yellow')
             elif ('green' in detections.values):
-            		self.traffic_light_publisher.publish('green')
+            	self.traffic_light_publisher.publish('green')
             else:
-            		self.traffic_light_publisher.publish('')
+           		self.traffic_light_publisher.publish('')
         else:
             self.traffic_light_publisher.publish('')
             		
