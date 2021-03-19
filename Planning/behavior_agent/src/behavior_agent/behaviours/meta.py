@@ -79,26 +79,27 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.blackboard = py_trees.blackboard.Blackboard()
+        self.last_init_pose = None
         return True
 
     def initialise(self):
-        init1 = self.blackboard.get("/carla/ego_vehicle/initialpose")
-        init2 = self.blackboard.get("/initialpose")
-        self.init1_val = None
-        self.init2_val = None
-        if init1 is not None:
-            self.init1_val = init1
-        if init2 is not None:
-            self.init2_val = init1
+        return True
 
     def update(self):
-        init1 = self.blackboard.get("/carla/ego_vehicle/initialpose")
-        init2 = self.blackboard.get("/initialpose")
-        if init1 is not None and self.init1_val != init1:
-            return py_trees.common.Status.SUCCESS
-        if init2 is not None and self.init2_val != init2:
-            return py_trees.common.Status.SUCCESS
-        # check if goal is reached
+        """
+        Checks if car was respawned or car reached target.
+        :return:
+        """
+        init_pose = self.blackboard.get("/carla/ego_vehicle/initialpose")
+
+        if init_pose is not None:
+            if self.last_init_pose is not None and init_pose != self.last_init_pose:
+                rospy.loginfo("Respawn")
+                self.last_init_pose = init_pose
+                return py_trees.common.Status.SUCCESS
+            else:
+                self.last_init_pose = init_pose
+
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         if odo is None:
             return py_trees.common.Status.FAILURE
