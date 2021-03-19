@@ -24,7 +24,7 @@ class StreetObjectDetector:
         self.semantic_segmentation_img = None
         
         # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
-        self.minimal_object_size_for_detection = 7
+        self.minimal_object_size_for_detection = 2
         
         # OCR settings
         self.ocr_tesseract_configs = [ "--psm 4 --oem 1", "--psm 6 --oem 1", "--psm 9 --oem 1", "--psm 11 --oem 1", "--psm 13 --oem 1" ]
@@ -57,7 +57,7 @@ class StreetObjectDetector:
         # There are dead areas in the camera's field of view where street signs and traffic lights can be ignored
         # OFFSET: [top, right, bottom, left]
         self.semantic_street_signs_offset = [0, 0, 0, 0.6]
-        self.semantic_traffic_light_offset = [0, 0.4, 0.85, 0.4]
+        self.semantic_traffic_light_offset = [0, 0.4, 0.70, 0.4]
         
         # array of offsets
         self.semantic_segment_search_offsets = {
@@ -73,7 +73,7 @@ class StreetObjectDetector:
 
         # SUBSCRIBERS
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
-            "/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semantic_segmentation_image_updated)
+            "/carla/{}/camera/semantic_segmentation/front_flat/image_segmentation".format(role_name), Image, self.semantic_segmentation_image_updated)
 
         self._rgb_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/camera/rgb/front/image_color".format(role_name), Image, self.rgb_image_updated)
@@ -81,6 +81,9 @@ class StreetObjectDetector:
         # PUBLISHERS
         self.speed_limit_publisher = rospy.Publisher(
             "/psaf/{}/speed_limit".format(self.role_name), Float64, queue_size=1, latch=True)
+            
+        self.traffic_light_publisher = rospy.Publisher(
+            "/psaf/{}/traffic_light".format(self.role_name), String, queue_size=1, latch=True)
 
         self.perception_info_publisher = rospy.Publisher(
             "/psaf/{}/perception_info".format(self.role_name), PerceptionInfo, queue_size=1, latch=True)
@@ -108,6 +111,8 @@ class StreetObjectDetector:
         """
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            cv2.imshow('sem', self.semantic_segmentation_img)
+            cv2.waitKey(1)
         except CvBridgeError as e:
             print_exc()
         
@@ -152,8 +157,8 @@ class StreetObjectDetector:
                             
                             # valid result?
                             if not street_object_image is None:
-                                street_objects[color_key]["count"] += 1
-                                street_objects[color_key]["objects"].append([ x_rel, y_rel, street_object_image.copy() ])
+                            	street_objects[color_key]["count"] += 1
+                            	street_objects[color_key]["objects"].append([ x_rel, y_rel, street_object_image.copy() ])
                                     
                     except Exception as e:
                         print_exc()
@@ -314,6 +319,9 @@ class StreetObjectDetector:
         
         street_object_image = img_rgb[ min_y:max_y, min_x:max_x, :]
         
+        if(street_object_image.size <= 0):
+        	return (None, img_sem)
+        	
         x_rel = round(min_x / rgb_width, 2)
         y_rel = round(min_y / rgb_height, 2)
         
@@ -382,6 +390,7 @@ class StreetObjectDetector:
 
         if not type(detections) is PerceptionInfo or not detections or not detections.objects:
             self.perception_info_publisher.publish(PerceptionInfo())
+            self.traffic_light_publisher.publish('')
             return None
             
 
@@ -393,7 +402,19 @@ class StreetObjectDetector:
                 if detections.objects[i] == "street_signs":
                     speed_limit = float(detections.values[i])
                     self.speed_limit_publisher.publish(speed_limit)
-
+            # red dominates over yellow and green
+            if ('red' in detections.values):
+            		self.traffic_light_publisher.publish('red')
+            # yellow dominates over green
+            elif ('yellow' in detections.values):
+            		self.traffic_light_publisher.publish('yellow')
+            elif ('green' in detections.values):
+            		self.traffic_light_publisher.publish('green')
+            else:
+            		self.traffic_light_publisher.publish('')
+        else:
+            self.traffic_light_publisher.publish('')
+            		
 
     def run(self):
         """
