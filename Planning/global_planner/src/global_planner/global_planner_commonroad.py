@@ -1,42 +1,35 @@
 import rospy
-import matplotlib.pyplot as plt
 import numpy as np
 import math
 import json
 
 from commonroad.common.file_reader import CommonRoadFileReader
-from commonroad.visualization.draw_dispatch_cr import draw_object
 from helper_functions import calc_egocar_yaw
 from SMP.route_planner.route_planner.route_planner import RoutePlanner
-from SMP.route_planner.route_planner.utils_visualization import draw_route, get_plot_limits_from_reference_path, \
-    get_plot_limits_from_routes
 from commonroad.planning.goal import GoalRegion
 from commonroad.scenario.trajectory import State
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.common.util import Interval, AngleInterval
+from commonroad.common.util import AngleInterval
 from commonroad.geometry.shape import Rectangle
 from commonroad.visualization.plot_helper import *
 
 from carla_msgs.msg import CarlaWorldInfo
 from geometry_msgs.msg import Point, PoseWithCovarianceStamped
-from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from custom_carla_msgs.msg import GlobalPathLanelets
 from tf.transformations import euler_from_quaternion
+from custom_carla_msgs.srv import UpdateGlobalPath
 
 PLOT_CROSSING = False
 
 
 class GlobalPlanner:
-    # TODO: GOAL AS GPS POINT
     def __init__(self, role_name):
         self.role_name = role_name
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
-        self.inital_pose_sub = rospy.Subscriber(f"/carla/{self.role_name}/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
-        self.inital_pose_sub = rospy.Subscriber(f"/initialpose", PoseWithCovarianceStamped, self.init_pose_received)
         self.sub = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.world_info_received)
 
         self.path_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path", Path, queue_size=1, latch=True)
@@ -48,24 +41,13 @@ class GlobalPlanner:
         self.current_pos = None
         self.current_orientation = None
         self.intersection_lanelet_ids = None
-        self.with_rules = False
+        self.with_rules = True
         self.target_pos = (10, 50)
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
-        self.publish_intersection_lanelet_ids(msg.data)
-        while self.scenario is None or self.current_orientation is None:
-            rospy.sleep(0.05)
-        self.create_global_plan()
-
-    def init_pose_received(self, pose):
-        while self.scenario is None or self.current_orientation is None:
-            rospy.sleep(0.05)
-        rospy.sleep(0.2)
-        self.target_pos = (rospy.get_param('/competition/goal/position/x', 10), rospy.get_param('/competition/goal/position/y', 50))
-        rospy.loginfo(f"Compute new route from: {self.current_pos} to {self.target_pos}")
-        self.create_global_plan()
+        self.publish_intersection_lanelet_ids()
 
     def odometry_received(self, msg):
         self.current_pos = (msg.pose.pose.position.x, msg.pose.pose.position.y)
@@ -74,7 +56,11 @@ class GlobalPlanner:
     def world_info_received(self, msg):
         self.map_number = msg.map_name
 
-    def publish_intersection_lanelet_ids(self, map_name):
+    def publish_intersection_lanelet_ids(self):
+        """
+        Collect special lanelet ids
+        :return:
+        """
         def plot_map(intersections, plot_labels=True):
             plt.figure(figsize=(20, 10))
             # plot the scenario at different time step
@@ -133,14 +119,26 @@ class GlobalPlanner:
         self.intersection_lanelet_ids = out_list
 
     def create_goal_states(self, pos):
+        """
+        Create goal states. If the scenario is run with rules the only goal state is the given target position.
+        If the scenario is run without rules the goal states are also located on lanelets that run parallel to
+        the target lanelet. With this it is possible to route to a lanelet in opposite direction and cut with the local
+        planner.
+        position
+        :param pos: Target position: (x, y)
+        :return:
+        """
         goal_lanelets = []
         goal_states = []
         goal_lanelets.append(self.scenario.lanelet_network.find_lanelet_by_position([np.array(pos)])[0])
         goal_states.append(State(position=Rectangle(2, 2, center=np.array(pos)), time_step=Interval(1, 200),
                                  velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2)))
+        # use target pos only
         if self.with_rules:
             return goal_states
 
+        # create a cross over the target position. Check if a point on the cross hits another lanelet.
+        # If so add this lanelet.
         for delta in range(-15, 15, 3):
             for direction in ["x", "y"]:
                 if direction == "x":
@@ -158,26 +156,35 @@ class GlobalPlanner:
                     print(e)
         return goal_states
 
-    def create_global_plan(self):
-        goal_region = GoalRegion(self.create_goal_states(self.target_pos))
+    def create_global_plan(self, req):
+        """
+        Create the global path to the target position. To create the path the commonroad Route Planner is used.
+        :param req: not needed only for ros srv
+        :return:
+        """
+        # make sure everything is loaded correctly
+        if self.scenario is None or self.current_orientation is None:
+            return False
 
+        # get information from param server
+        self.target_pos = (rospy.get_param('/competition/goal/position/x', 10), rospy.get_param('/competition/goal/position/y', 50))
+        self.with_rules = rospy.get_param('/competition/traffic_rules', True)
+        rospy.loginfo(f"Compute new route from: {self.current_pos} to {self.target_pos}."
+                      f" Rules: {'On' if self.with_rules else 'Off'}")
+
+        # create the planning problem with goal and target
+        goal_region = GoalRegion(self.create_goal_states(self.target_pos))
         yaw = calc_egocar_yaw(self.current_orientation)
         start_state = State(position=np.array([self.current_pos[0], self.current_pos[1]]), time_step=1, velocity=0.0, yaw_rate=0.0, slip_angle=0.0, orientation=yaw)
-
         planning_problem = PlanningProblem(10000, start_state, goal_region)
-        # self.planning_problem_set.add_planning_problem(planning_problem)
 
         # instantiate a route planner
-
         route_planner = RoutePlanner(self.scenario, planning_problem, backend=RoutePlanner.Backend.NETWORKX_REVERSED)
-
         # plan routes, and save the found routes in a route candidate holder
         candidate_holder = route_planner.plan_routes()
 
-        # we retrieve the first route in the list
-        # this is equivalent to: route = list_routes[0]
+        # get all routes, search for the shortest
         routes, _ = candidate_holder.retrieve_all_routes()
-        # print(f"Time: {time.time() -start}")
         shortest_path = np.inf
         shortest_route = None
         if len(routes) > 1:
@@ -190,17 +197,24 @@ class GlobalPlanner:
                     shortest_path = len_path
                     shortest_route = route
         else:
-            shortest_route = routes[0]
+            try:
+                shortest_route = routes[0]
+            except IndexError:
+                rospy.logerr("Start or target point is not on a lanelet. Try a new combination")
+                return False
 
+        # get the (x, y) on the routes and delete unnecessary points
         point_route = shortest_route.reference_path
         point_route = self.sanitize_route(point_route)
 
+        # create the lanelet massage
         lanelet_msg = GlobalPathLanelets()
         lanelet_msg.lanelet_ids = shortest_route.list_ids_lanelets
         lanelet_msg.adjacent_lanelet_ids = json.dumps(shortest_route.retrieve_route_sections())
         lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
         self.lanelet_pub.publish(lanelet_msg)
 
+        # creat the global path message
         path_msg = Path()
         path_msg.header.frame_id = "map"
         path_msg.header.stamp = rospy.Time.now()
@@ -214,19 +228,7 @@ class GlobalPlanner:
             path_msg.poses.append(pose)
 
         self.path_pub.publish(path_msg)
-
-        # #plotting
-        # plt.cla()
-        # plt.clf()
-        # plt.ion()
-        # # determine the figure size for better visualization
-        # plot_limits = get_plot_limits_from_routes(route)
-        # size_x = 6
-        # ratio_x_y = (plot_limits[1] - plot_limits[0]) / (plot_limits[3] - plot_limits[2])
-        # plt.gca().axis('equal')
-        # draw_route(route, draw_route_lanelets=True, draw_reference_path=True, plot_limits=plot_limits)
-        # plt.pause(0.001)
-
+        return True
 
     def sanitize_route(self, route):
         # delete unnecessary points at begin and end of route
@@ -234,7 +236,6 @@ class GlobalPlanner:
         min_index = -1
         min_distance_start = None
         min_distance_end = None
-
 
         # find last point before start position
         for i, point in enumerate(route):
@@ -254,7 +255,6 @@ class GlobalPlanner:
             cut_left = 0
 
         # find last point after target position
-        #TODO: MAKE DYNAMIC
         for i, point in enumerate(reversed(route)):
             distance, _ = self.compute_magnitude_angle(point, np.array(self.target_pos), self.current_orientation.orientation)
 
@@ -301,16 +301,15 @@ class GlobalPlanner:
         if cross > 0:
             d_angle *= -1.0
 
-        return (norm_target, d_angle)
-
+        return norm_target, d_angle
 
 
 if __name__ == "__main__":
-    rospy.init_node('carla_manual_control', anonymous=True)
+    rospy.init_node('global_planner', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
-
     gp = GlobalPlanner(role_name)
-
+    # add topic
+    s = rospy.Service("update_global_path", UpdateGlobalPath, gp.create_global_plan)
     # idle so topic is still present
     # (resp. if world changes)
     try:
