@@ -352,14 +352,14 @@ class StreetObjectDetector:
         red_mask_full = red_mask_orange + red_mask_violet 
 
         # green
-        lower_green = np.array([35, 85, 110], dtype="uint8")
-        upper_green = np.array([70, 255, 255], dtype="uint8")
+        lower_green = np.array([40, 85, 110], dtype="uint8")
+        upper_green = np.array([91, 255, 255], dtype="uint8")
         green_mask = cv2.inRange(frame_hsv, lower_green, upper_green)
 
 
         # yellow
-        lower_yellow = np.array([20, 50, 50], dtype="uint8")
-        upper_yellow = np.array([30, 255, 255], dtype="uint8")
+        lower_yellow = np.array([22, 93, 0], dtype="uint8")
+        upper_yellow = np.array([45, 255, 255], dtype="uint8")
         yellow_mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow)
         
         red_count = cv2.countNonZero(red_mask_full)
