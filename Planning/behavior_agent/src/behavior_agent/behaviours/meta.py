@@ -4,6 +4,7 @@ import rospy
 import py_trees
 import numpy as np
 from std_msgs.msg import Float64
+from custom_carla_msgs.srv import UpdateGlobalPath, UpdateLocalPath
 
 
 class Start(py_trees.behaviour.Behaviour):
@@ -11,13 +12,34 @@ class Start(py_trees.behaviour.Behaviour):
         super(Start, self).__init__(name)
 
     def setup(self, timeout):
+        self.blackboard = py_trees.blackboard.Blackboard()
+        rospy.wait_for_service('update_global_path')
+        self.update_global_path = rospy.ServiceProxy("update_global_path", UpdateGlobalPath)
+        rospy.wait_for_service('update_local_path')
+        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
+        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
         return True
 
     def initialise(self):
         return True
 
     def update(self):
-        return py_trees.common.Status.SUCCESS
+        success_global_path = self.update_global_path()
+        rospy.loginfo(success_global_path)
+        if success_global_path:
+            bb_dist = self.blackboard.get("/psaf/ego_vehicle/distance_next_intersection")
+            if bb_dist is not None:
+                dist = bb_dist.data
+                if dist == np.inf:
+                    success_local_path = self.update_local_path(leave_intersection=True)
+                else:
+                    success_local_path = self.update_local_path(approach_intersection=True)
+                if success_local_path:
+                    rospy.loginfo("Everything is fine. We can start now!")
+                    self.target_speed_pub.publish(50.0)
+                    return py_trees.common.Status.SUCCESS
+
+        return py_trees.common.Status.RUNNING
 
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
@@ -90,11 +112,13 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
         Checks if car was respawned or car reached target.
         :return:
         """
-        init_pose = self.blackboard.get("/carla/ego_vehicle/initialpose")
+        init_pose = self.blackboard.get("/initialpose")
 
         if init_pose is not None:
             if self.last_init_pose is not None and init_pose != self.last_init_pose:
-                rospy.loginfo("Respawn")
+                self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+                self.target_speed_pub.publish(0.0)
+                rospy.loginfo(f"New spawn at {init_pose.pose.pose}")
                 self.last_init_pose = init_pose
                 return py_trees.common.Status.SUCCESS
             else:

@@ -77,7 +77,8 @@ def grow_a_tree(role_name):
                                                                 behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
                                                             ])
                                                         ])
-                                                    ])
+                                                    ]),
+                                                    Running("Can't Overtake")
                                                 ])),
                                                 # dont turn back to right lane
                                                 #Sequence("Back to Right Lane", children=[
@@ -155,7 +156,8 @@ def grow_a_tree(role_name):
                                                                 behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
                                                             ])
                                                         ])
-                                                    ])
+                                                    ]),
+                                                    Running("Can't Overtake")
                                                 ])),
                                                 # dont turn back to right lane
                                                 #Sequence("Back to Right Lane", children=[

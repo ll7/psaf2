@@ -137,7 +137,7 @@ class Leave(py_trees.behaviour.Behaviour):
         self.blackboard = py_trees.blackboard.Blackboard()
 
     def update(self):
-        return py_trees.common.Status.SUCCESS
+        return py_trees.common.Status.FAILURE
            # return py_trees.common.Status.RUNNING
         
     def terminate(self, new_status):
