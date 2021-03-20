@@ -54,7 +54,7 @@ class RoundaboutAhead(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.FAILURE
         else:
             self.dist = bb.data
-        if self.dist < 50:
+        if self.dist < 20:
             rospy.loginfo("approaching roundabout")
             return py_trees.common.Status.SUCCESS
         else:

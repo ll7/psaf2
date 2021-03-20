@@ -77,10 +77,11 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         for p in poses_transformed:
             dx =[p.pose.position.x - icx for icx in px]
             dy =[p.pose.position.y - icy for icy in py]
-            d = np.hypot(dx,dy)           
-            dist = min(d)            
-            if dist < max_dist_to_path:                    
-                points.append(p)
+            d = np.hypot(dx,dy)     
+            if len(d) > 0:
+                dist = min(d)            
+                if dist < max_dist_to_path:                    
+                    points.append(p)
         return points   
 
     def transform_into_map_coords(self, points):

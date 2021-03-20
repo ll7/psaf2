@@ -168,11 +168,17 @@ class GlobalPlanner:
         lanelet_msg.adjacent_lanelet_ids = json.dumps(route.retrieve_route_sections())
         lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
 
-        lanelet_msg.lanelet_ids_roundabout_inside = lanelet_ids_roundabout_inside
-        lanelet_msg.lanelet_ids_roundabout_incoming = lanelet_ids_roundabout_incoming
-        lanelet_msg.lanelet_ids_roundabout_outgoing = lanelet_ids_roundabout_outgoing 
-        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = lanelet_ids_roundabout_inside_outer_circle
-        
+        lanelet_msg.lanelet_ids_roundabout_inside = [190, 191, 196, 306, 308, 305, 307, 198, 201, 202, 199, 195, 188, 193]
+        lanelet_msg.lanelet_ids_roundabout_incoming = [184, 181, 347, 203, 280, 284, 194, 189]
+        lanelet_msg.lanelet_ids_roundabout_outgoing = [205, 200, 204, 188, 199, 345, 206, 187]
+        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]
+
+        # lanelet_ids_roundabout_inside = [190, 191, 196, 306, 308, 305, 307, 198, 201, 202, 199, 195, 188, 193]
+        # lanelet_ids_roundabout_incoming = [184, 181, 347, 203, 280, 284, 194, 189]
+        # lanelet_ids_roundabout_outgoing = [205, 200, 204, 188, 199, 345, 206, 187]
+        # lanelet_ids_roundabout_inside_inner_circle = [190, 191, 306, 305, 198, 199, 188]
+        # lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]
+
         self.lanelet_pub.publish(lanelet_msg)
 
         point_route = route.reference_path
