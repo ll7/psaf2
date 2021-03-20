@@ -9,11 +9,8 @@ class Approach(py_trees.behaviour.Behaviour):
         self.Successs = False
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
-
 
     def update(self):
         if self.Successs:

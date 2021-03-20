@@ -77,6 +77,7 @@ class LocalPlanner:
         approach_intersection: Plan a path for the approach and the behaviour in a intersection. Changes to the correct
          lane for a turn if necessary
         leave_intersection: Plan a path to leave the intersection and drive straight in the next lanelet.
+        approach roundabout:  
         change_lane_left: Plan a path for a left lane change.
         change_lane_right: Plan a path for a right lane change.
         :param req: ROS srv message.
@@ -85,6 +86,7 @@ class LocalPlanner:
         # resolve ros srv message
         change_lane_left = req.change_lane_left
         change_lane_right = req.change_lane_right
+        # approach_roundabout = req.approach_roundabout
         approach_intersection = req.approach_intersection
         leave_intersection = req.leave_intersection
         path = []
@@ -102,6 +104,15 @@ class LocalPlanner:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, left=True))
                 elif change_lane_right:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
+                # elif approach_roundabout:
+                #     rospy.loginfo("Approach Roundabout")
+                #     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor
+                #         if lane_id in sector:
+                #             break
+                #     next_lanelet_id = current_lanelet.successor[0]
+                #     next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(next_lanelet_id)
+                #     #fahre bis ende lanelet
+                #     #nächste lanelet äußere im kreisverkehr
                 elif approach_intersection:
                     rospy.loginfo("Approach Intersection")
                     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor

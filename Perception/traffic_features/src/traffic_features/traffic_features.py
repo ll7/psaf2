@@ -21,6 +21,7 @@ class TrafficFeatures:
         self.last_non_intersection_lanelet_id = None
         
         self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
+        self.distance_roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", Float64, queue_size=1)
         self.lane_status_pub = rospy.Publisher(f"/psaf/{self.role_name}/lane_status", LaneStatus, queue_size=1)
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
@@ -40,6 +41,12 @@ class TrafficFeatures:
         self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
         self.adjacent_lanelets_flattened = [item for sublist in self.adjacent_lanelets for item in sublist]
         self.intersection_lanelet_ids = msg.lanelet_ids_in_intersection
+
+        self.lanelet_ids_roundabout_inside = msg.lanelet_ids_roundabout_inside
+        self.lanelet_ids_roundabout_incoming = msg.lanelet_ids_roundabout_incoming
+        self.lanelet_ids_roundabout_outgoing = msg.lanelet_ids_roundabout_outgoing
+        self.lanelet_ids_roundabout_inside_outer_circle = msg.lanelet_ids_roundabout_inside_outer_circle
+
         if self.scenario and self.adjacent_lanelets_flattened:
             self.update_lanelet_lengths()
 
@@ -56,26 +63,11 @@ class TrafficFeatures:
         ls.leftLaneId = -1
 
         # find lanelet id. Only lanelets that are on the global path are considered.
-        possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_pos])
-        if len(possible_ids) == 0:  # no id found
-            rospy.loginfo("Car is not on street. Abort.")
-            ls.currentLaneId = -1
-            self.lane_status_pub.publish(ls)
-            return
+        possible_ids = self.scenario.lanelet_network.find_lanelet_by_position([self.current_p
+                    distances_to_outer_circle.append(np.argmin(distances_to_center_vertices))
+                if len(distances_to_outer_circle) > 0:
+                    distance = min(distances_to_outer_circle)
 
-        current_lanelet_id = -1
-        for lanelet_id in possible_ids[0]:
-            if lanelet_id in self.adjacent_lanelets_flattened:  # check if lanelet is on global path
-                current_lanelet_id = lanelet_id
-                ls.currentLaneId = current_lanelet_id
-                break
-
-        lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)
-        if lane is None:
-            distance = 0
-        else:
-            if current_lanelet_id in self.intersection_lanelet_ids:
-                distance = np.inf
             else:
                 distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
                 idx = np.argmin(distances_to_center_vertices)
@@ -87,7 +79,12 @@ class TrafficFeatures:
                     ls.isMultiLane = True
                     ls.rightLaneId = lane.adj_right
 
-        self.distance_pub.publish(distance)
+        
+        if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
+            self.distance_roundabout_pub.publish(distance)
+            self.distance_pub.publish(np.inf)
+        else:
+            self.distance_pub.publish(distance)
         self.lane_status_pub.publish(ls)
 
     def run(self):

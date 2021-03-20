@@ -46,9 +46,16 @@ class RoundaboutAhead(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
+        self.dist = 0
 
     def update(self):
-        if self.Roundabout:
+        bb = self.blackboard.get("/psaf/ego_vehicle/distance_next_roundabout")
+        if bb is None:
+            return py_trees.common.Status.FAILURE
+        else:
+            self.dist = bb.data
+        if self.dist < 50:
+            rospy.loginfo("approaching roundabout")
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE

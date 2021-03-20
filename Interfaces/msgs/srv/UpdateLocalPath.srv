@@ -2,5 +2,6 @@ bool change_lane_left
 bool change_lane_right
 bool approach_intersection
 bool leave_intersection
+bool approach_roundabout
 ---
 bool Success

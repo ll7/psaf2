@@ -111,21 +111,28 @@ class GlobalPlanner:
             if len(lane.predecessor) == 1 and len(lane.successor) == 1 and lane.distance[-1] < 100:
                 intersection_ids.append(lanelet_id)
 
-        # remove lanelets that were wrongly detected.
+        # map nummer 3 ist die mit kreisverkehr
         if self.map_number == 1:
             ids_to_remove = []
         elif self.map_number == 2:
             ids_to_remove = []
         elif self.map_number == 3:
-            ids_to_remove = [115, 107, 342, 340, 176, 169, 258, 259, 260, 320, 386, 177]
+            ids_to_remove = [115, 107, 342, 340, 176, 169, 258, 259, 260, 320, 386, 177,
+            283, 284, 279, 280, 203, 190, 195, 308, 186, 187, 210, 306, 206, 183, 182] #lanelets from roundabout need to be removed from intersections]
         elif self.map_number == 5:
-            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]
+            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]                            
         else:
             ids_to_remove = []
 
+        lanelet_ids_roundabout_inside = [190, 191, 196, 306, 308, 305, 307, 198, 201, 202, 199, 195, 188, 193]
+        lanelet_ids_roundabout_incoming = [184, 181, 347, 203, 280, 284, 194, 189]
+        lanelet_ids_roundabout_outgoing = [205, 200, 204, 188, 199, 345, 206, 187]
+        lanelet_ids_roundabout_inside_inner_circle = [190, 191, 306, 305, 198, 199, 188]
+        lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]
+
         out_list = []
         for id in intersection_ids:
-            if id not in ids_to_remove:
+            if id not in ids_to_remove and id not in lanelet_ids_roundabout_incoming and id not in lanelet_ids_roundabout_inside and id not in lanelet_ids_roundabout_outgoing:        
                 out_list.append(id)
 
         if PLOT_CROSSING:
@@ -160,6 +167,12 @@ class GlobalPlanner:
         lanelet_msg.lanelet_ids = route.list_ids_lanelets
         lanelet_msg.adjacent_lanelet_ids = json.dumps(route.retrieve_route_sections())
         lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
+
+        lanelet_msg.lanelet_ids_roundabout_inside = lanelet_ids_roundabout_inside
+        lanelet_msg.lanelet_ids_roundabout_incoming = lanelet_ids_roundabout_incoming
+        lanelet_msg.lanelet_ids_roundabout_outgoing = lanelet_ids_roundabout_outgoing 
+        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = lanelet_ids_roundabout_inside_outer_circle
+        
         self.lanelet_pub.publish(lanelet_msg)
 
         point_route = route.reference_path
