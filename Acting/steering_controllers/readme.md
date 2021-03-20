@@ -6,7 +6,7 @@ It uses a PID-Controller for longitudinal and a Stanley-Controller for lateral c
 Subscribes to
 ```
 /psaf/global_path 
-/carla/ego_vehicle/target_speed
+/psaf/ego_vehicle/target_speed
 /carla/ego_vehicle/odometry
 /carla/ego_vehicle/speedometer
 

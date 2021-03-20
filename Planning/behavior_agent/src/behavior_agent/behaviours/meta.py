@@ -17,7 +17,7 @@ class Start(py_trees.behaviour.Behaviour):
         self.update_global_path = rospy.ServiceProxy("update_global_path", UpdateGlobalPath)
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
-        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         return True
 
     def initialise(self):
@@ -25,7 +25,6 @@ class Start(py_trees.behaviour.Behaviour):
 
     def update(self):
         success_global_path = self.update_global_path()
-        rospy.loginfo(success_global_path)
         if success_global_path:
             bb_dist = self.blackboard.get("/psaf/ego_vehicle/distance_next_intersection")
             if bb_dist is not None:
@@ -51,7 +50,7 @@ class End(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.blackboard = py_trees.blackboard.Blackboard()
-        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         return True
 
     def initialise(self):
@@ -102,6 +101,7 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
     def setup(self, timeout):
         self.blackboard = py_trees.blackboard.Blackboard()
         self.last_init_pose = None
+        self.last_init_pose_carla = None
         return True
 
     def initialise(self):
@@ -112,17 +112,29 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
         Checks if car was respawned or car reached target.
         :return:
         """
+        # check for change on topic initialpose (for respawn rviz)
         init_pose = self.blackboard.get("/initialpose")
-
         if init_pose is not None:
             if self.last_init_pose is not None and init_pose != self.last_init_pose:
-                self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+                self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
                 self.target_speed_pub.publish(0.0)
                 rospy.loginfo(f"New spawn at {init_pose.pose.pose}")
                 self.last_init_pose = init_pose
                 return py_trees.common.Status.SUCCESS
             else:
                 self.last_init_pose = init_pose
+
+        # check for change on topic carla/ego_vehicle/initialpose  (for respawn in competition)
+        init_pose = self.blackboard.get("/carla/ego_vehicle/initialpose")
+        if init_pose is not None:
+            if self.last_init_pose_carla is not None and init_pose != self.last_init_pose_carla:
+                self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
+                self.target_speed_pub.publish(0.0)
+                rospy.loginfo(f"New spawn at {init_pose.pose.pose}")
+                self.last_init_pose_carla = init_pose
+                return py_trees.common.Status.SUCCESS
+            else:
+                self.last_init_pose_carla = init_pose
 
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         if odo is None:
