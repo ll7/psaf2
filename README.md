@@ -56,6 +56,19 @@ This node computes informations about the current lanelet, like distance to the 
 # Installation
 Author: Julius Brandl
 
+Install ROS Noetic: http://wiki.ros.org/noetic/Installation/Ubuntu
+Install Carla 0.9.10: https://carla.readthedocs.io/en/0.9.10/start_quickstart/
+Install Carla-Ros-Bridge (0.9.10.1): https://github.com/carla-simulator/ros-bridge
+Clone our repo, install dependencies and build:
+```shell script
+cd ~/carla-ros-bridge
+git clone https://github.com/ll7/psaf2.git
+cd psaf2
+./install_dependencies.sh
+```
+If you need more information about the installation process or if you don't trust our installation script check out our wiki entry:
+https://github.com/ll7/psaf2/wiki/Installation
+
 ## How to launch the ego vehicle?
 ```shell
 roslaunch ego_vehicle ego_vehicle.launch
