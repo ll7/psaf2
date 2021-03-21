@@ -22,6 +22,7 @@ class LocalPlanner:
         self.lanelets_path_ids = None
         self.lanelets_roundabout_outgoing = None
         self.lanelets_roundabout_inside = None
+        self.lanelets_roundabout_inside_outer_circle = None
 
         # adjacent_lanelets = [[1], [2, 3], [4, 5], [6]] 2D-List that creates the global path. If more than one element
         # exists in a sub-list it means that there is a adjacent lane. A possible path would be: 1,2,4,6 or 1,3,4,6
@@ -45,6 +46,7 @@ class LocalPlanner:
         self.lanelets_path_ids = msg.lanelet_ids
         self.lanelets_roundabout_inside = msg.lanelet_ids_roundabout_inside
         self.lanelets_roundabout_outgoing = msg.lanelet_ids_roundabout_outgoing
+        self.lanelets_roundabout_inside_outer_circle = msg.lanelet_ids_roundabout_inside_outer_circle
 
         self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
         self.adjacent_lanelets_flattened = [item for sublist in self.adjacent_lanelets for item in sublist]
@@ -117,9 +119,31 @@ class LocalPlanner:
                 elif approach_roundabout:
                     rospy.loginfo("Approach Roundabout")
                     #über globalen Pfad den Ausgang finden
-                    if lanelet_ids_roundabout_outgoing is not None:
-                        ids = lanelet_ids_roundabout_outgoing.intersection(lanelet_ids)
+                    if self.lanelets_roundabout_outgoing is not None:
+                        outgoing_lane = self.lanelets_roundabout_outgoing.intersection(self.lanelets_path_ids)[0]
 
+                        #distanzen zu outer circle lanelets
+                        distances_to_outer_circle = []
+                        closest_lanelet_on_outer_circle = None
+                        for inner_lanelet_id in self.lanelets_roundabout_inside_outer_circle:
+                            inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id))
+                            distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)
+                            if np.min(distances_to_right_vertices) < np.min(distances_to_outer_circle):
+                                closest_lanelet_on_outer_circle = inner_lane                
+                            distances_to_outer_circle.append(np.min(distances_to_right_vertices))
+                        #sobald eine distanz < 1, wechsel zu nächstem punkt auf mittellinie dieser outer circle lanelet
+                                    
+                        if len(distances_to_outer_circle) > 0:
+                            if np.min(distances_to_outer_circle) < 1:
+                                if closest_lanelet_on_outer_circle is not None:
+                                    path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_nearest_point:])
+                                    #folge outer circle lanelets
+                                    successor = closest_lanelet_on_outer_circle.successor.intersection(self.lanelets_roundabout_inside_outer_circle)[0]
+                                    if successor is not None:
+                                        path.extend(self.scenario.lanelet_network.find_lanelet_by_id(successor))
+
+                    #TODO: solange successor suchen, bis abstand zu outgoing < 1
+ 
                     #außen im Kreisverkehr bis Ausgang fahren
                     
                 elif approach_intersection:
