@@ -15,8 +15,8 @@ The resulting set of line-clusters can be used to calculate an offset from the c
 
 * Take the longest line in each cluster
 * if 
-    * there is a line with an angle smaller than a threshold (```0.05*pi```)
-    * and the line is longer than threshold (```0.35*imagewidth```) 
+    * there is a line with an angle smaller than a threshold (```0.15*pi```)
+    * and the line is longer than threshold (```0.30*imagewidth```) 
 * then take the its negative relative y-position as the relative distance to stop-line. 
 * else publish infinity as distance.
 
