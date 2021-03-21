@@ -132,7 +132,7 @@ class Wait(py_trees.behaviour.Behaviour):
         print("WAIT GREEN: ", green)           
         self.speed =  np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
-        if self.speed < 5 or green > red:
+        if self.speed < 5 and green > red:
             rospy.loginfo("Traffic lights is green.")
             return py_trees.common.Status.SUCCESS
         else:
