@@ -43,4 +43,5 @@ roslaunch line_detection line_detection.launch
 
 ## Authors
 Lukas Hartmann
+
 Valentin Höpfner
