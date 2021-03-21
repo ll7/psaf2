@@ -1,7 +1,7 @@
 # Praktikum zur Simulation von autonomen Fahrzeugen - Gruppe 2
 Author: Valentin Höpfner
 
-The goal of this project was to develop an autonomous vehicle for the [CARLA-simulator](https://github.com/carla-simulator/carla). The agent is to move collision-free and autonomously on various maps, on which other vehicles are also traveling, from an arbitrary starting point to an arbitrary destination. Two different modes are relevant for the evaluation: one mode in which traffic rules are observed, and one mode in which they are not. 
+The goal of this project was to develop an autonomous vehicle for the [CARLA-simulator](https://github.com/carla-simulator/carla). The task is to move collision-free and autonomously on various maps, on which other vehicles are also traveling, from an arbitrary starting point to an arbitrary destination. Two different modes are relevant for the evaluation: one mode in which traffic rules are observed, and one mode in which they are not. 
 
 ## Overview over the packages
 We developed various ROS-nodes for the core-functionalities of our ego-vehicle. Each ROS-node is wrapped in a package, and those packages can be further grouped into one of three categories: _Perception_, _Planning_ and _Acting_. An overview over the packages and some of their interfaces is provided in the following graphic.
@@ -57,8 +57,11 @@ This node computes informations about the current lanelet, like distance to the 
 Author: Julius Brandl
 
 Install ROS Noetic: http://wiki.ros.org/noetic/Installation/Ubuntu
+
 Install Carla 0.9.10: https://carla.readthedocs.io/en/0.9.10/start_quickstart/
+
 Install Carla-Ros-Bridge (0.9.10.1): https://github.com/carla-simulator/ros-bridge
+
 Clone our repo, install dependencies and build:
 ```shell script
 cd ~/carla-ros-bridge
