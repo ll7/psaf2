@@ -30,7 +30,9 @@ This node computes a global path from the position of the ego_vehicle to a given
 This node provides a service, that can be called on to compute a local path. You can pass parameters to switch lanes or get into the right lane for turning on an intersection.
 
 ### [behaviour_agent](Planning/behaviour_agent)
-This node contains the behaviour agent, that decides on the ego_vehicles actions (i.e. switching lane, overtaking) based on data from the Perception-nodes. It is based on a behaviour tree. It can influence the vehicles actions, by calling the local_planner to compute new paths, or passing a different target-speed to the steering_controllers node. 
+This node contains the behaviour agent, that decides on the ego_vehicles actions (i.e. switching lane, overtaking) based on data from the Perception-nodes. It is based on a behaviour tree. It can influence the vehicles actions, by calling the local_planner to compute new paths, or passing a different target-speed to the steering_controllers node. The following graphic represents the top level of the driving-behaviour-tree. You can find a detailed description of the behaviour-tree we use inside the [behaviour_agent-Package](Planning/behaviour_agent).
+
+![BT-big-picture](documentation/behaviour_agent/bt_big_picture.svg)
 
 ## [Perception](Perception)
 
