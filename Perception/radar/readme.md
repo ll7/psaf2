@@ -5,16 +5,18 @@ To compute the distance all points provided by the Radar-Sensor are first filter
 ## Topics
 Subscribes to
 ```
-/psaf/ego_vehicle/localPath
-/carla/ego_vehicle/radar/front/radar_points
+Topic                                           Message Type
+/psaf/ego_vehicle/localPath                     nav_msgs/Path.msg
+/carla/ego_vehicle/radar/front/radar_points     sensor_msgs/PointCloud2.msg 
 
 ```
 
 Publishes to
 ```
-/psaf/ego_vehicle/radar/distance # distance to object in front (m)
-/psaf/ego_vehicle/radar/points # filtered pointcloud for debugging purposes
-/psaf/ego_vehicle/bt/condition/slowed_by_car_in_front # True if there is an object on the path, False otherwise
+Topic                                                   Message Type                    Description
+/psaf/ego_vehicle/radar/distance                        std_msgs/Float64.msg            # distance to object in front (m)
+/psaf/ego_vehicle/radar/points                          sensor_msgs/PointCloud2.msg     # filtered pointcloud for debugging purposes
+/psaf/ego_vehicle/bt/condition/slowed_by_car_in_front   std_msgs/Bool.msg               # True if there is an object on the path, False otherwise
 ```
 ## Parameters
 ```python
