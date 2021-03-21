@@ -42,6 +42,12 @@ This node parses the OpenDrive-File and provides it in the right format to the l
 ### [radar](Perception/radar)
 This node computes the distance to the car driving in front. Also considers the local path to filter the radar data. 
 
+### [lidar](Perception/lidar)
+This node computes the distance to other objects around the ego vehicle. It also considers lanelet-information to filter and group other traffic. 
+
+### [street_object_detector](Perception/street_object_detector)
+This node detects traffic signs and traffic lights using the semantic segmentation camera. It then uses OCR to detect speed limits and color information to determine the state of traffic lights.  
+
 ### [road_features](Perception/road_features)
 This node computes informations about the current lanelet, like distance to the next intersection or the number of lanes. This information is provided to the behaviour agent. 
 
