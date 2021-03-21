@@ -10,45 +10,46 @@ import tf2_ros
 import tf2_geometry_msgs
 from geometry_msgs.msg import PoseStamped, Pose
 
-class Radar(object):  # pylint: disable=too-few-public-methods
+class Radar(object): 
+    """ Determines distance to car in front
+        to improve performance in corners the projected Path of the ego_vehicle is also considered
     """
-    VehicleController is the combination of two controllers (lateral and longitudinal)
-    to perform the low level control a vehicle from client side
-    """
-
-    def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None):
-
-        self._current_speed = 0.0
+    def __init__(self, role_name):
+        self.max_dist_to_path = 2 # max distance a point can be from the path to be considered
         self.safety_time = 2.0 #time to wait if no obstacle detected
         self.safety_distance = 100 #distance to publish if no obstacle detected
         self._current_pose = Pose()
         self.current_time = rospy.get_time()
         self.role_name = role_name
-        self.path = None        
+        self.path = Path()        
 
         self._radar_subscriber = rospy.Subscriber(
             f"/carla/{role_name}/radar/front/radar_points", PointCloud2, self.radar_updated)
-        self._dist_publisher = rospy.Publisher(f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
         self._route_subscriber = rospy.Subscriber(
             f"/psaf/{role_name}/local_path", Path, self.route_updated)
         self._odometry_subscriber = rospy.Subscriber(
             "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
-        self._points_publisher = rospy.Publisher(f"psaf/{role_name}/radar/points", PointCloud2, queue_size=1)
-        self._slowed_publisher = rospy.Publisher(f"psaf/{role_name}/bt/condition/slowed_by_car_in_front", Bool, queue_size=1)
+        self._points_publisher = rospy.Publisher(
+            f"psaf/{role_name}/radar/points", PointCloud2, queue_size=1)
+        self._dist_publisher = rospy.Publisher(
+            f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
+        self._slowed_publisher = rospy.Publisher(
+            f"psaf/{role_name}/bt/condition/slowed_by_car_in_front", Bool, queue_size=1)
         
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(0)) #tf buffer length
         tf_listener = tf2_ros.TransformListener(self.tf_buffer)
     
     def odometry_updated(self, odo):
+        """Odometry Update Callback
         """
-        callback on new odometry data
-        """
-        self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
-                                        odo.twist.twist.linear.y ** 2 +
-                                        odo.twist.twist.linear.z ** 2) * 3.6
         self._current_pose = odo.pose.pose
 
     def debug_filter_points(self, points):
+        """Creates a PointCloud2 Object from array of Poses that is then published for debug purposes
+
+        Args:
+            points ([type]): array of poses in map frame
+        """
         cloud_msg = PointCloud2()
         cloud_msg.header.frame_id = "map"
         cloud_msg.header.stamp = rospy.Time.now()            
@@ -56,7 +57,13 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         point_cloud = pc2.create_cloud_xyz32(cloud_msg.header, xyz)
         self._points_publisher.publish(point_cloud)  
 
-    def calc_dist(self, points):               
+    def calc_dist(self, points):
+        """calculates distance of the closest point in points and publishes its distance
+        if no points are passed for safety_time it publishes safety_distance
+
+        Args:
+            points ([type]): array of poses in map frame
+        """                  
         dist_x = [self._current_pose.position.x - p.pose.position.x for p in points]
         dist_y = [self._current_pose.position.y - p.pose.position.y for p in points]
         dist = np.hypot(dist_x,dist_y) 
@@ -71,6 +78,15 @@ class Radar(object):  # pylint: disable=too-few-public-methods
                 self.current_time = rospy.get_time() 
 
     def filter_poses(self, max_dist_to_path, poses_transformed):
+        """filters a list of poses by their distance to the path
+
+        Args:
+            max_dist_to_path (Float): maximum distance a point can be from the path to be included
+            poses_transformed ([type]): list of poses to consider
+
+        Returns:
+            [type]: filtered list of points
+        """
         px =[posen.pose.position.x for posen in self.path.poses]
         py =[posen.pose.position.y for posen in self.path.poses]
         points = []        
@@ -84,6 +100,13 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         return points   
 
     def transform_into_map_coords(self, points):
+        """transforms a list of points from ego_vehicle/radar/front frame to map frame using tf2 and the current transformation
+        Args:
+            points ([type]): points in ego_vehicle/radar/front frame
+
+        Returns:
+            [type]: points in map frame
+        """
         poses = []
         for p in points:
             pose = PoseStamped()
@@ -102,39 +125,28 @@ class Radar(object):  # pylint: disable=too-few-public-methods
         return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
 
     def radar_updated(self, msg):
+        """
+        Callback on Radar data, that performs the processing pipeline
+
+        """
         if self.path != None:
             points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))           
             transformed_radar_poses = self.transform_into_map_coords(points)
-            points = self.filter_poses(2, transformed_radar_poses)
+            points = self.filter_poses(self.max_dist_to_path, transformed_radar_poses)
             self.debug_filter_points(points)
             self.calc_dist(points)
             
     def route_updated(self, path):
         self.path = path
 
-    def run(self):
-        """
-        Control loop
-        :return:
-        """
-        r = rospy.Rate(10)
-        while not rospy.is_shutdown():
 
-                try:
-                    r.sleep()
-                except rospy.ROSInterruptException:
-                    pass
 
 def main():
     rospy.init_node('radar', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
-    target_speed = rospy.get_param("~target_speed", 0)
-    radar = Radar(role_name, target_speed)
-    try:
-        radar.run()
-    finally:
-        del radar
-    rospy.loginfo("Done")
+    radar = Radar(role_name)
+    # node is based on callbacks
+    rospy.spin()
 
 if __name__ == "__main__":
     main()

@@ -14,84 +14,86 @@ from steering_controllers.stanley_control import StanleyLateralController
 
 
 
-class VehicleController(object):  # pylint: disable=too-few-public-methods
+class VehicleController(object): 
     """
-    VehicleController is the combination of two controllers (lateral and longitudinal)
-    to perform the low level control a vehicle from client side
+    Combination of all Controllers that perform lateral and longitudinal control on the ego vehicle.
+    Currently PID controllers are used for distance and speed control
+    A Stanley Controller is used for steering control
     """
 
-    def __init__(self, role_name, target_speed, args_longitudinal=None, args_lateral=None, args_dist=None):
+    def __init__(self, role_name, target_speed):
 
         self._current_speed = 0.0  # Km/h
         self._current_pose = Pose()
         self._route = Path()
         self._target_speed = target_speed
+        self._current_distance = 0
+        self._target_distance = 10
 
-        if not args_longitudinal:
-            args_longitudinal = {'K_P': 0.25, 'K_D': 0.0, 'K_I': 0.1}
-        if not args_lateral:
-            args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
-        if not args_dist:
-            args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
-
+        # speed controller parameters
+        args_longitudinal = {'K_P': 0.25, 'K_D': 0.0, 'K_I': 0.1}
+        # distance control parameters
+        args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
+        # Stanley control parameters
+        args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
+        
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
         self._lat_controller = StanleyLateralController(**args_lateral)
         self._dist_controller = PIDLongitudinalController(**args_dist)
         self._last_control_time = rospy.get_time()
-        self._current_distance = 0
-        self._target_distance = 10
-        
+
         self._route_subscriber = rospy.Subscriber(
             f"/psaf/{role_name}/local_path", Path, self.path_updated)
-
         self._target_speed_subscriber = rospy.Subscriber(
-            "/carla/{}/target_speed".format(role_name), Float64, self.target_speed_updated)
-        
+            f"/psaf/{role_name}/target_speed", Float64, self.target_speed_updated)
         self._odometry_subscriber = rospy.Subscriber(
-            "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
-
-        self._odometry_subscriber = rospy.Subscriber(
-            "/carla/{}/speedometer".format(role_name), Float32, self.speed_updated)
-
+            f"/carla/{role_name}/odometry", Odometry, self.odometry_updated)
+        self.radarsubscriber = rospy.Subscriber(
+            f"psaf/{role_name}/radar/distance", Float64, self.radar_updated)
         self.vehicle_control_publisher = rospy.Publisher(
-            "/carla/{}/vehicle_control_cmd".format(role_name), CarlaEgoVehicleControl, queue_size=1)
-        
-        self.pidpublisher = rospy.Publisher(
-            "/psaf/{}/debug/controller".format(role_name), Float64, queue_size=1)
+            f"/carla/{role_name}/vehicle_control_cmd", CarlaEgoVehicleControl, queue_size=1)
 
-        self.radarsubscriber = rospy.Subscriber(f"psaf/{role_name}/radar/distance", Float64, self.radar_updated)
 
         
-    def run_step(self, target_speed, current_speed):
+    def run_step(self):
         """
-        Execute one step of control invoking longitudinal
-        PID controller to reach a given target_speed.
-        :param target_speed: desired vehicle speed
+        This function should be called periodically to compute steering, throttle and brake commands
+
+        Returns:
+            carla_msgs_.msg.CarlaEgoVehicleControl: Ego Vehicle Control command
         """
+        # allow for variable stepsize
         current_time = rospy.get_time()
         dt = current_time-self._last_control_time
         if dt == 0.0:
             dt = 0.000001
-        control = CarlaEgoVehicleControl()
 
+        # compute safety distance
         min_dist = 4
         if self._current_speed > min_dist*2:
-            self._target_distance = self._current_speed/2
+            self._target_distance = self._current_speed * .55 
         else:
             self._target_distance = min_dist
 
+        # perform pid control step with distance and speed controllers
         lon = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)        
         dist = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
-        #print("current_speed: {}".format(self._current_speed))
-        #print("current_dist: {}".format(self._current_distance))
+
+        # use whichever controller yields the lowest throttle
         if lon < dist:
             throttle = lon
         else:
             throttle = dist
-        self.pidpublisher.publish(throttle)
 
-        steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
         self._last_control_time = current_time
+
+        # calculate steer
+        steering = self._lat_controller.run_step(self._route, self._current_pose, self._current_speed)
+
+        # piece together the control message
+        control = CarlaEgoVehicleControl()
+
+        # positive throttle outputs are directed to the throttle, negative ones to the brakes
         if throttle >= 0.0:
             control.throttle = np.clip(throttle, 0.0, 1.0)
             control.brake = 0.0
@@ -104,25 +106,19 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
 
         return control
 
-
     def odometry_updated(self, odo):
+        """Odometry Update Callback
         """
-        callback on new odometry data
-        """
+        # calculate current speed (km/h) from twist 
         self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
                                         odo.twist.twist.linear.y ** 2 +
                                         odo.twist.twist.linear.z ** 2) * 3.6
         self._current_pose = odo.pose.pose
     
     def radar_updated(self, msg):
+        """Radar Update Callback
+        """
         self._current_distance = msg.data
-
-    def speed_updated(self, speed):
-        """
-        callback on new spped
-        converts from m/s to km/h
-        """
-        self._current_speed = speed.data*3.6
 
     def target_speed_updated(self, target_speed):
         """
@@ -145,8 +141,9 @@ class VehicleController(object):  # pylint: disable=too-few-public-methods
         :return:
         """
         r = rospy.Rate(10)
+        # periodically run lateral and longitudinal control 
         while not rospy.is_shutdown():
-            control = self.run_step(self._target_speed, self._current_speed)
+            control = self.run_step()
             if control:
                 control.steer = -control.steer
                 self.vehicle_control_publisher.publish(control)
