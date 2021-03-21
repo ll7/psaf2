@@ -11,16 +11,18 @@ The controller code is stored in seperate Files for easy reusability.
 ## Topics
 Subscribes to
 ```
-/psaf/ego_vehicle/localPath
-/psaf/ego_vehicle/radar/distance
-/carla/ego_vehicle/target_speed
-/carla/ego_vehicle/odometry
+Topic                                   Message Type
+/psaf/ego_vehicle/localPath             nav_msgs/Path.msg
+/psaf/ego_vehicle/radar/distance        std_msgs/Float64.msg
+/psaf/ego_vehicle/target_speed          std_msgs/Float64.msg
+/carla/ego_vehicle/odometry             nav_msgs/Odometry.msg
 
 ```
 
 Publishes control commands to
 ```
-/carla/ego_vehicle/vehicle_control_cmd
+Topic                                   Message Type
+/carla/ego_vehicle/vehicle_control_cmd  carla_msgs/CarlaEgoVehicleControl.msg
 
 ```
 ## Controller Parameters
