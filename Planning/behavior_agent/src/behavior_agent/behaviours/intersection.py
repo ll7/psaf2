@@ -3,6 +3,7 @@ import numpy as np
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 from custom_carla_msgs.srv import UpdateLocalPath
+from custom_carla_msgs.msg import PerceptionInfo
 
 import rospy
 
@@ -13,14 +14,14 @@ class Approach(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
-        rospy.wait_for_service('update_local_path')
-        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
+        #rospy.wait_for_service('update_local_path')
+        #self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
     def initialise(self):
         rospy.loginfo("Approaching Intersection")
-        self.update_local_path(approach_intersection=True)
+        #self.update_local_path(approach_intersection=True)
         self.start_time = rospy.get_time()
         self.stopline_detected = False
         self.stopline_distance = np.inf
@@ -43,7 +44,7 @@ class Approach(py_trees.behaviour.Behaviour):
         # check for intersection update
         _distl = self.blackboard.get("/psaf/ego_vehicle/distance_next_intersection")
         if _distl is not None:
-            self.intersection_distance = _dis.data
+            self.intersection_distance = _distl.data
         # check for trafficlight update
         _tl = self.blackboard.get("/psaf/ego_vehicle/perception_info")
         red = 0
@@ -53,14 +54,16 @@ class Approach(py_trees.behaviour.Behaviour):
                 red = red + 1
             elif x == "green":
                 green = green + 1
+        print("RED: ", red)
+        print("GREEN: ", green)
         if red > green:
-            if _dis.data < _distl.data:  # intersection with stop line
+            if _dis is not None and _dis.data < _distl.data:  # intersection with stop line
                 self.intersection_distance = _dis.data 
             else:
                 self.intersection_distance = _distl.data
         
         # check if stop line detected
-        if self.trafficlight_detected is False and self.intersection_distance != np.inf:
+        if self.trafficlight_detected is False and red != 0:
             self.trafficlight_detected = True
             rospy.loginfo("trafficlight detected")
         elif self.stopline_detected is False and self.stopline_distance != np.inf:
@@ -92,8 +95,7 @@ class Approach(py_trees.behaviour.Behaviour):
 
         # check if speed is 0
         self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
-        self.speed =  np.sqrt(
-            self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
+        self.speed =  np.sqrt(self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
         if self.speed < 1:
             return py_trees.common.Status.SUCCESS
         else:
@@ -117,13 +119,26 @@ class Wait(py_trees.behaviour.Behaviour):
 
     def update(self):
         self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
+        # check for trafficlight update
+        _tl = self.blackboard.get("/psaf/ego_vehicle/perception_info")
+        red = 0
+        green = 0
+        for x in _tl.values: 
+            if x == "red" or x == "yellow":
+                red = red + 1
+            elif x == "green":
+                green = green + 1
+        print("WAIT RED: ", red)
+        print("WAIT GREEN: ", green)           
         self.speed =  np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
-        if self.speed < 5:
+        if self.speed < 5 or green > red:
+            rospy.loginfo("Traffic lights is green.")
             return py_trees.common.Status.SUCCESS
         else:
-            return py_trees.common.Status.RUNNING
-        
+            rospy.loginfo("Waiting for the traffic lights to become green.")
+            return py_trees.common.Status.RUNNING         
+                 
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
 
@@ -135,13 +150,13 @@ class Enter(py_trees.behaviour.Behaviour):
     def setup(self, timeout):
         self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
         rospy.wait_for_service('update_local_path')
-        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
+        #self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         self.blackboard = py_trees.blackboard.Blackboard()
         self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
         return True
 
     def initialise(self):
-        self.update_local_path(leave_intersection=True)
+        #self.update_local_path(leave_intersection=True)
         self.target_speed_pub.publish(50.0)
 
     def update(self):

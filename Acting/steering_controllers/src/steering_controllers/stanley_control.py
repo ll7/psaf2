@@ -8,39 +8,50 @@ from tf.transformations import euler_from_quaternion
 
 from helper_functions import calc_egocar_yaw, normalize_angle, calc_path_yaw
 
-class StanleyLateralController(object):  # pylint: disable=too-few-public-methods
-    """
-    StanleyLateralController implements longitudinal control using a PID.
+class StanleyLateralController(object):
+    """StanleyLateral Controller implements Lateral control using a stanley controller
+
     """
 
     def __init__(self, k=.5, Kp=1.0, L=2.9, max_steer=30.0, min_speed=10):
-
         self.k = k  # control gain
         self.Kp = Kp  # speed proportional gain
         self.L = L  # [m] Wheel base of vehicle
-        self.max_steer = np.deg2rad(max_steer)
-        self.min_speed = min_speed 
-        #self.targetpointpublisher = rospy.Publisher("/debug/stanley/targetpoint", PoseStamped, queue_size=1)
+        self.max_steer = np.deg2rad(max_steer) # maximum steering angle (degrees)
+        self.min_speed = min_speed # minimum speed used for calculation, to avoid infinite values when standing still
 
     def run_step(self, currentPath, currentPose, currentSpeed):
-        current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
-        # theta_e corrects the heading error
-        theta_e = normalize_angle(calc_path_yaw(currentPath, current_target_idx) - calc_egocar_yaw(currentPose))
+        """Runs the Stanley-Controller calculations once
 
-        # theta_d corrects the cross track error
-        
+        Args:
+            currentPath (nav_msgs.msg.Path): Path to follow
+            currentPose (geometry_msgs.msg.PoseStamped): Pose of Ego Vehicle
+            currentSpeed (float): speed of ego_vehicle
+
+        Returns:
+           float: steering angle
+        """
+        current_target_idx, error_front_axle = self.calc_target_index(currentPath, currentPose)
+        # compute heading error correction
+        theta_e = normalize_angle(calc_path_yaw(currentPath, current_target_idx) - calc_egocar_yaw(currentPose))
         if currentSpeed < self.min_speed:
             currentSpeed = self.min_speed
+        # compute cross track error correction
         theta_d = np.arctan2(self.k * error_front_axle, currentSpeed)
-        # Steering control      
+        # compute steer      
         delta = theta_e + theta_d
-        #if len(currentPath.poses) != 0:
-       #    self.targetpointpublisher.publish(currentPath.poses[current_target_idx])
         return np.clip(delta, -self.max_steer, self.max_steer)
 
     def calc_target_index(self, currentPath, currentPose):
-        """
-        Compute index in the trajectory list of the target.
+        """Calculates the index of the closest Point on the Path relative to the front axle
+
+        Args:
+            currentPath (nav_msgs.msg.Path): Path to follow
+            currentPose (geometry_msgs.msg.PoseStamped): Pose of Ego Vehicle
+
+        Returns:
+            target_idx [int]: index of target point
+            error_front_axle [float]: distance from front axle to target point
         """
 
         if len(currentPath.poses) == 0:
@@ -65,8 +76,3 @@ class StanleyLateralController(object):  # pylint: disable=too-few-public-method
         error_front_axle = np.dot([dx[target_idx], dy[target_idx]], front_axle_vec)
 
         return target_idx, error_front_axle
-    
-
-
-
- # sudo docker run -it --network="host" -e CARLAVIZ_HOST_IP=localhost -e CARLA_SERVER_IP=localhost -e CARLA_SERVER_PORT=2000 mjxu96/carlaviz:latest
