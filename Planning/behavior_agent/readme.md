@@ -53,3 +53,5 @@ Main Function of a behaviour, that gets called everytime the behaviour is ticked
 This gets called, whenever a behaviour is cancelled by a higher priority branch. Use to terminate Middleware-Connections or Asynchronous Calculations, whose Results are not needed anymore. 
 
 
+## Authors
+Valentin Höpfner
