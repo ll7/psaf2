@@ -11,10 +11,17 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   DIRECTORY msg
   FILES
+  PerceptionInfo.msg
   CommonroadMap.msg
   GlobalPathLanelets.msg
+  LaneStatus.msg
 )
 
+add_service_files(
+  DIRECTORY srv
+  FILES
+  UpdateLocalPath.srv
+)
 generate_messages(
   DEPENDENCIES
   std_msgs

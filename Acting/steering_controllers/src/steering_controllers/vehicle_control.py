@@ -43,7 +43,7 @@ class VehicleController(object):
         self._last_control_time = rospy.get_time()
 
         self._route_subscriber = rospy.Subscriber(
-            f"/psaf/{role_name}/global_path", Path, self.path_updated)
+            f"/psaf/{role_name}/local_path", Path, self.path_updated)
         self._target_speed_subscriber = rospy.Subscriber(
             f"/psaf/{}/target_speed", Float64, self.target_speed_updated)
         self._odometry_subscriber = rospy.Subscriber(

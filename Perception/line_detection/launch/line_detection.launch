@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="line_detection" type="line_detection.py" name="line_detection" output="screen">
+  </node>
+
+</launch>
+

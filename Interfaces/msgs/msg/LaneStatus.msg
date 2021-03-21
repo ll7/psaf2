@@ -1,0 +1,4 @@
+bool isMultiLane
+int32 rightLaneId
+int32 leftLaneId
+int32 currentLaneId
