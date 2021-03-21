@@ -45,13 +45,13 @@ class VehicleController(object):
         self._route_subscriber = rospy.Subscriber(
             f"/psaf/{role_name}/local_path", Path, self.path_updated)
         self._target_speed_subscriber = rospy.Subscriber(
-            f"/psaf/{}/target_speed", Float64, self.target_speed_updated)
+            f"/psaf/{role_name}/target_speed", Float64, self.target_speed_updated)
         self._odometry_subscriber = rospy.Subscriber(
-            f"/carla/{}/odometry", Odometry, self.odometry_updated)
+            f"/carla/{role_name}/odometry", Odometry, self.odometry_updated)
         self.radarsubscriber = rospy.Subscriber(
             f"psaf/{role_name}/radar/distance", Float64, self.radar_updated)
         self.vehicle_control_publisher = rospy.Publisher(
-            f"/carla/{}/vehicle_control_cmd", CarlaEgoVehicleControl, queue_size=1)
+            f"/carla/{role_name}/vehicle_control_cmd", CarlaEgoVehicleControl, queue_size=1)
 
 
         
@@ -143,7 +143,7 @@ class VehicleController(object):
         r = rospy.Rate(10)
         # periodically run lateral and longitudinal control 
         while not rospy.is_shutdown():
-            control = self.run_step(self._target_speed, self._current_speed)
+            control = self.run_step()
             if control:
                 control.steer = -control.steer
                 self.vehicle_control_publisher.publish(control)
