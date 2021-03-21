@@ -19,6 +19,11 @@ class TrafficFeatures:
         self.adjacent_lanelets_flattened = []
         self.lanelet_lengths = {}
         self.last_non_intersection_lanelet_id = None
+
+        self.lanelet_ids_roundabout_inside = None
+        self.lanelet_ids_roundabout_incoming = None
+        self.lanelet_ids_roundabout_outgoing = None
+        self.lanelet_ids_roundabout_inside_outer_circle = None
         
         self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
         self.distance_roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", Float64, queue_size=1)
@@ -91,7 +96,8 @@ class TrafficFeatures:
                         distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)                
                         distances_to_outer_circle.append(np.min(distances_to_right_vertices))      
                     # rospy.loginfo(distances_to_outer_circle)              
-                    if len(distances_to_outer_circle) > 0:                    
+                    if len(distances_to_outer_circle) > 0:  
+                        rospy.loginfo(np.min(distances_to_outer_circle))                   
                         distance = np.min(distances_to_outer_circle)                        
                     else: 
                         distance = np.inf
@@ -105,11 +111,11 @@ class TrafficFeatures:
                 if lane.adj_right_same_direction:
                     ls.isMultiLane = True
                     ls.rightLaneId = lane.adj_right
-        
-        if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
-            # rospy.loginfo("On Lanelet to RoundAbout")
-            self.distance_roundabout_pub.publish(distance)
-            self.distance_pub.publish(np.inf)
+        if self.lanelet_ids_roundabout_incoming is not None:
+            if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
+                # rospy.loginfo("On Lanelet to RoundAbout")
+                self.distance_roundabout_pub.publish(distance)
+                self.distance_pub.publish(np.inf)
         else:
             self.distance_pub.publish(distance)
         self.lane_status_pub.publish(ls)

@@ -19,6 +19,10 @@ class LocalPlanner:
         self.current_pos = np.zeros(shape=2)
         self.scenario = None
 
+        self.lanelets_path_ids = None
+        self.lanelets_roundabout_outgoing = None
+        self.lanelets_roundabout_inside = None
+
         # adjacent_lanelets = [[1], [2, 3], [4, 5], [6]] 2D-List that creates the global path. If more than one element
         # exists in a sub-list it means that there is a adjacent lane. A possible path would be: 1,2,4,6 or 1,3,4,6
         self.adjacent_lanelets = None
@@ -38,6 +42,10 @@ class LocalPlanner:
         self.org_scenario = copy.deepcopy(self.scenario)
 
     def lanelets_received(self, msg):
+        self.lanelets_path_ids = msg.lanelet_ids
+        self.lanelets_roundabout_inside = msg.lanelet_ids_roundabout_inside
+        self.lanelets_roundabout_outgoing = msg.lanelet_ids_roundabout_outgoing
+
         self.adjacent_lanelets = json.loads(msg.adjacent_lanelet_ids)
         self.adjacent_lanelets_flattened = [item for sublist in self.adjacent_lanelets for item in sublist]
 
@@ -86,7 +94,9 @@ class LocalPlanner:
         # resolve ros srv message
         change_lane_left = req.change_lane_left
         change_lane_right = req.change_lane_right
-        # approach_roundabout = req.approach_roundabout
+        
+
+        approach_roundabout = req.approach_roundabout
         approach_intersection = req.approach_intersection
         leave_intersection = req.leave_intersection
         path = []
@@ -104,15 +114,14 @@ class LocalPlanner:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, left=True))
                 elif change_lane_right:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
-                # elif approach_roundabout:
-                #     rospy.loginfo("Approach Roundabout")
-                #     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor
-                #         if lane_id in sector:
-                #             break
-                #     next_lanelet_id = current_lanelet.successor[0]
-                #     next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(next_lanelet_id)
-                #     #fahre bis ende lanelet
-                #     #nächste lanelet äußere im kreisverkehr
+                elif approach_roundabout:
+                    rospy.loginfo("Approach Roundabout")
+                    #über globalen Pfad den Ausgang finden
+                    if lanelet_ids_roundabout_outgoing is not None:
+                        ids = lanelet_ids_roundabout_outgoing.intersection(lanelet_ids)
+
+                    #außen im Kreisverkehr bis Ausgang fahren
+                    
                 elif approach_intersection:
                     rospy.loginfo("Approach Intersection")
                     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor
