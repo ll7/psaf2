@@ -1,22 +1,6 @@
 ## About
 This package detects lines in the semantic-segmentation image. Those lines are then clustered and filtered to compute the distance to the next stopline. 
 
-## Topics
-Subscribes to
-```
-Topic                                                                      Message Type
-/carla/ego_vehicle/camera/semantic_segmentation/front/image_segmentation   sensor_msgs.Image
-
-```
-
-Publishes to
-```
-Topic                                  Message Type
-/psaf/ego_vehicle/roadmark             sensor_msgs.Image
-/psaf/ego_vehicle/stopline_distance    std_msgs.Float64
-
-```
-
 ## Image Processing
 The following processing pipeline is used to extract and cluster the lines in the image:
 
@@ -36,7 +20,21 @@ The resulting set of line-clusters can be used to calculate an offset from the c
 * then take the its negative relative y-position as the relative distance to stop-line. 
 * else publish infinity as distance.
 
+## Topics
+Subscribes to
+```
+Topic                                                                      Message Type
+/carla/ego_vehicle/camera/semantic_segmentation/front/image_segmentation   sensor_msgs.Image
 
+```
+
+Publishes to
+```
+Topic                                  Message Type
+/psaf/ego_vehicle/roadmark             sensor_msgs.Image
+/psaf/ego_vehicle/stopline_distance    std_msgs.Float64
+
+```
 
 ## How to launch this node?
 ```shell
