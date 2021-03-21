@@ -5,7 +5,7 @@ This Package implements a behaviour agent for our autonomous car using __Behavio
 
 
 ## Our behaviour tree
-The following section describes the behaviour tree we use for normal driving with all traffic rules. In the actual implementation this is part of a bigger tree, that handles things like writing topics to the blackboard, switching modes and respawning. The following description is not complete, it just contains the most common behaviours and subtrees. For a complete description have a look at the [tree-description]() (you can open it with [Groot](https://github.com/BehaviorTree/Groot)) and the [bt-specs](). Note that we didnt actually implement all of the behaviours from this design, due to time limitations. 
+The following section describes the behaviour tree we use for normal driving with all traffic rules. In the actual implementation this is part of a bigger tree, that handles things like writing topics to the blackboard, switching modes and respawning. The following description is not complete, it just contains the most common behaviours and subtrees. For a complete description have a look at the [tree-description](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/behaviortree.xml) (you can open it with [Groot](https://github.com/BehaviorTree/Groot)) and the [bt-specs](https://github.com/ll7/psaf2/blob/main/documentation/BTSpecs.md). Note that we didnt actually implement all of the behaviours from this design, due to time limitations. 
 
 ### Legend
 The following Notation is used in this documentation:
@@ -36,7 +36,7 @@ If there is a Intersection coming up the agent executes the following sequence o
 This subtree is basically identical to the intersection-subtree. The implementation of the behaviours varies a bit though. 
 
 ### Overtaking
-The Overtaking subtree is quite big to accommodate for different overtaking scenarios. Please have a look at the [tree-description]() and the [bt-specs]() for a more detailed description. The Multi-Lane Overtaking Subtree looks like this:
+The Overtaking subtree is quite big to accommodate for different overtaking scenarios. Please have a look at the [tree-description](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/behaviortree.xml) and the [bt-specs](https://github.com/ll7/psaf2/blob/main/documentation/BTSpecs.md) for a more detailed description. The Multi-Lane Overtaking Subtree looks like this:
 ![BT Overtaking](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt-overtaking.svg)
 * Multi Lane?
 
