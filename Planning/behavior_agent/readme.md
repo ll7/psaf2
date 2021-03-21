@@ -1,5 +1,62 @@
+# behaviour_agent
+
 ## About
 This Package implements a behaviour agent for our autonomous car using __Behaviour Trees__. It uses the _py_trees_ Framework, that works well with ROS. All the dependencies for that library should be included in the installation instructions (wiki). For visualization at runtime you might want to also install this [rqt-Plugin](https://wiki.ros.org/rqt_py_trees). 
+
+
+## Our behaviour tree
+The following section describes the behaviour tree we use for normal driving with all traffic rules. In the actual implementation this is part of a bigger tree, that handles things like writing topics to the blackboard, switching modes and respawning. The following description is not complete, it just contains the most common behaviours and subtrees. For a complete description have a look at the [tree-description]() (you can open it with [Groot](https://github.com/BehaviorTree/Groot)) and the [bt-specs](). Note that we didnt actually implement all of the behaviours from this design, due to time limitations. 
+
+### Legend
+The following Notation is used in this documentation:
+![BT Legend](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt-legend.svg)
+
+### Big Picture
+![BT Big Picture](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt_big_picture.svg)
+This top-level tree consists mainly of sub-trees that are explained below. If none of the subtrees fit the current situation, the behaviour_agent goes into _Cruising_-behaviour, where it just follows the Path at an appropriate speed. 
+
+### Intersection
+![BT Intersection](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt-intersection.svg)
+If there is a Intersection coming up the agent executes the following sequence of behaviours:
+* Approach Intersection
+
+    Slows down, gets into the right lane for turning and stops at line
+* Wait at Intersection
+
+    Waits for traffic lights or higher priority traffic
+* Enter Intersection
+
+    Enters the intersection and stops again, if there is higher priority oncoming traffic
+* Leave Intersection
+
+    Leaves the intersection in the right direction
+
+### Roundabout
+![BT Roundabout](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt-roundabout.svg)
+This subtree is basically identical to the intersection-subtree. The implementation of the behaviours varies a bit though. 
+
+### Overtaking
+The Overtaking subtree is quite big to accommodate for different overtaking scenarios. Please have a look at the [tree-description]() and the [bt-specs]() for a more detailed description. The Multi-Lane Overtaking Subtree looks like this:
+![BT Overtaking](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt-overtaking.svg)
+* Multi Lane?
+
+    Checks the map data: does the current road have more than one lane?
+* Left Lane available?
+
+    Checks the map data: is there a lane available to the left of the ego vehicle?
+* Wait for Left Lane free
+
+    Waits for the left lane to be free. This has a timeout.
+* Switch Lane Left
+
+    Triggers a Laneswitch to the left by calling the local planner
+
+### Right-Hand Driving
+This subtree makes the ego vehicle switch back to the right lane, if the road ahead is free enough. It is quite similar to the Multi-Lane Overtaking Subtree, just with reversed directions.
+
+![BT Right Hand](https://github.com/ll7/psaf2/blob/main/documentation/behaviour_agent/bt-right-hand.svg)
+
+# Developing guide
 
 ## Tree Definition
 The tree is defined in the `grow_a_tree()`-function inside `src/behavior_agent/behavior_tree.py`, which is also the main node. It can be visualized using an [rqt-Plugin](https://wiki.ros.org/rqt_py_trees). This is also the Place to change the execution rate of the tree: 
@@ -53,5 +110,5 @@ Main Function of a behaviour, that gets called everytime the behaviour is ticked
 This gets called, whenever a behaviour is cancelled by a higher priority branch. Use to terminate Middleware-Connections or Asynchronous Calculations, whose Results are not needed anymore. 
 
 
-## Authors
+# Authors
 Valentin Höpfner
