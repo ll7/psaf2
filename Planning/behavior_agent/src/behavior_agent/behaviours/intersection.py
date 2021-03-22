@@ -106,7 +106,6 @@ class Enter(py_trees.behaviour.Behaviour):
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         self.blackboard = py_trees.blackboard.Blackboard()
-        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         return True
 
     def initialise(self):
