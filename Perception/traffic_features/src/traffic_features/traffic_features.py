@@ -97,7 +97,7 @@ class TrafficFeatures:
                         distances_to_outer_circle.append(np.min(distances_to_right_vertices))      
                     # rospy.loginfo(distances_to_outer_circle)              
                     if len(distances_to_outer_circle) > 0:  
-                        rospy.loginfo(np.min(distances_to_outer_circle))                   
+                        #rospy.loginfo(np.min(distances_to_outer_circle))                   
                         distance = np.min(distances_to_outer_circle)                        
                     else: 
                         distance = np.inf
