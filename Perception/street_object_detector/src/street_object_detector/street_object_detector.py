@@ -24,7 +24,7 @@ class StreetObjectDetector:
         self.semantic_segmentation_img = None
         
         # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
-        self.minimal_object_size_for_detection = 3
+        self.minimal_object_size_for_detection = 15
         
         # OCR settings
         self.ocr_tesseract_configs = [ "--psm 4 --oem 1", "--psm 6 --oem 1", "--psm 9 --oem 1", "--psm 11 --oem 1", "--psm 13 --oem 1" ]
@@ -47,7 +47,7 @@ class StreetObjectDetector:
         self.speed_limit_values = [ '30', '60', '90' ]
         
         # minimum count of pixels of the dominant color for traffic light color detection
-        self.traffic_light_pixel_count_threshold = 3
+        self.traffic_light_pixel_count_threshold = 8
 
         # COLOR SETTINGS (B, R, G) (have to be numpy arrays!)
         self.semantic_street_signs_color = np.array([ 0, 220, 220 ], np.uint8)
@@ -57,7 +57,7 @@ class StreetObjectDetector:
         # There are dead areas in the camera's field of view where street signs and traffic lights can be ignored
         # OFFSET: [top, right, bottom, left]
         self.semantic_street_signs_offset = [0, 0, 0, 0.6]
-        self.semantic_traffic_light_offset = [0, 0.4, 0.85, 0.4]
+        self.semantic_traffic_light_offset = [0, 0, 0.5, 0.4]
         
         # array of offsets
         self.semantic_segment_search_offsets = {
@@ -111,6 +111,8 @@ class StreetObjectDetector:
         """
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            cv2.imshow('sem', self.semantic_segmentation_img)
+            cv2.waitKey(1)
         except CvBridgeError as e:
             print_exc()
         
@@ -352,14 +354,14 @@ class StreetObjectDetector:
         red_mask_full = red_mask_orange + red_mask_violet 
 
         # green
-        lower_green = np.array([35, 85, 110], dtype="uint8")
-        upper_green = np.array([70, 255, 255], dtype="uint8")
+        lower_green = np.array([40, 85, 110], dtype="uint8")
+        upper_green = np.array([91, 255, 255], dtype="uint8")
         green_mask = cv2.inRange(frame_hsv, lower_green, upper_green)
 
 
         # yellow
-        lower_yellow = np.array([20, 50, 50], dtype="uint8")
-        upper_yellow = np.array([30, 255, 255], dtype="uint8")
+        lower_yellow = np.array([22, 93, 0], dtype="uint8")
+        upper_yellow = np.array([45, 255, 255], dtype="uint8")
         yellow_mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow)
         
         red_count = cv2.countNonZero(red_mask_full)
