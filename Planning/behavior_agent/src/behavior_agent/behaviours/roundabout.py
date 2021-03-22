@@ -80,7 +80,7 @@ class Enter(py_trees.behaviour.Behaviour):
 
     def initialise(self):
         rospy.loginfo("Entering Enter")
-        self.update_local_path(leave_intersection=True)
+        #self.update_local_path(leave_intersection=True)
         self.target_speed_pub.publish(30.0)
         self.blackboard = py_trees.blackboard.Blackboard()
 
