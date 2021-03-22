@@ -111,8 +111,6 @@ class StreetObjectDetector:
         """
         try:
             self.semantic_segmentation_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            cv2.imshow('sem', self.semantic_segmentation_img)
-            cv2.waitKey(1)
         except CvBridgeError as e:
             print_exc()
         
