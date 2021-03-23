@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>traffic_features</name>
+  <name>road_features</name>
   <version>0.0.0</version>
   <description>The carla scripted package by us</description>
   <maintainer email="carla.simulator@gmail.com">We</maintainer>

@@ -109,7 +109,7 @@ class TrafficFeatures:
 
 
 def main():
-    rospy.init_node('traffic_features', anonymous=True)
+    rospy.init_node('road_features', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
     tf = TrafficFeatures(role_name)
     tf.run()
