@@ -174,9 +174,18 @@ class LocalPlanner:
                                 if closest_lanelet_on_outer_circle is not None:                                    
                                     #Schnittpunkt Kreisverkehrspur und aktuelle spur finden
                                     minimum, idx_minimum_one, idx_minimum_two = self.intersection_id_of_two_center_vertices(closest_lanelet_on_outer_circle, current_lanelet)
-                                    path[:-(len(current_lanelet.center_vertices) - idx_minimum_two)]
-                                    path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one:])
-
+                                    if minimum > 2:
+                                        successor_id = current_lanelet.successor[0]
+                                        if successor_id is not None:
+                                            successor = self.scenario.lanelet_network.find_lanelet_by_id(successor_id)
+                                            path.extend(successor.center_vertices)
+                                            minimim_succesor, idx_minimum_succesor, idx_minimum_closest = self.intersection_id_of_two_center_vertices(successor, closest_lanelet_on_outer_circle)
+                                            path = path[:-(len(successor.center_vertices) - idx_minimum_succesor)]
+                                            path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest:])                                        
+                                    else:
+                                        path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two)]
+                                        path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one:])
+                                
                                     #solange successor suchen, bis abstand zu outgoing < 4
                                     #außen im Kreisverkehr bis Ausgang fahren
                                     while closest_lanelet_on_outer_circle is not None:
@@ -188,7 +197,9 @@ class LocalPlanner:
                                         if len(distances_to_outgoing_center_vertices) > 0:
                                             if np.min(minimum) < 2:
                                                 rospy.loginfo(f"next Lane is outgoing_lane with distance = {minimum}")
-                                                path[:-(len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)]
+                                                less_steps = (len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)
+                                                rospy.loginfo(f"reduced path with length {len(closest_lanelet_on_outer_circle.center_vertices)} by {less_steps}")
+                                                path = path[:-less_steps]
                                                 path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
                                                 closest_lanelet_on_outer_circle = None
                                             else:
