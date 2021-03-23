@@ -15,6 +15,7 @@ add_message_files(
   CommonroadMap.msg
   GlobalPathLanelets.msg
   LaneStatus.msg
+  NextLanelet.msg
 )
 
 add_service_files(

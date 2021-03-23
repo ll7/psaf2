@@ -26,13 +26,13 @@ class Start(py_trees.behaviour.Behaviour):
     def update(self):
         success_global_path = self.update_global_path()
         if success_global_path:
-            bb_dist = self.blackboard.get("/psaf/ego_vehicle/distance_next_intersection")
+            bb_dist = self.blackboard.get("/psaf/ego_vehicle/next_lanelet")
             if bb_dist is not None:
-                dist = bb_dist.data
-                if dist == np.inf:
-                    success_local_path = self.update_local_path(leave_intersection=True)
-                else:
+                is_next_intersection = bb_dist.isInIntersection
+                if is_next_intersection:
                     success_local_path = self.update_local_path(approach_intersection=True)
+                else:
+                    success_local_path = self.update_local_path(leave_intersection=True)
                 if success_local_path:
                     rospy.loginfo("Everything is fine. We can start now!")
                     self.target_speed_pub.publish(50.0)
