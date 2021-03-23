@@ -84,6 +84,18 @@ class LocalPlanner:
     def intersection(self, lst1, lst2): 
         return list(set(lst1) & set(lst2))
 
+    def intersection_id_of_two_center_vertices(self, lane_one, lane_two):
+        minimum = 100
+        idx_minimum_one = 0
+        idx_minimum_two = 0
+        for i,p in enumerate(lane_two.center_vertices):
+            distances = np.linalg.norm(lane_one.center_vertices - p, axis = 1)
+            if np.min(distances) < minimum:
+                minimum = np.min(distances)
+                idx_minimum_one = np.argmin(distances)
+                idx_minimum_two = i
+        return minimum, idx_minimum_one, idx_minimum_two
+
     def update_local_path(self, req):
         """
         Update local path. The function is registered as a ROS-Service. The service definition file is located in
@@ -159,20 +171,25 @@ class LocalPlanner:
                         if len(distances_to_outer_circle) > 0:
                             if np.min(distances_to_outer_circle) < 20:
                                 rospy.loginfo("distance to outer circle < 20")
-                                if closest_lanelet_on_outer_circle is not None:
+                                if closest_lanelet_on_outer_circle is not None:                                    
+                                    #Schnittpunkt Kreisverkehrspur und aktuelle spur finden
+                                    minimum, idx_minimum_one, idx_minimum_two = self.intersection_id_of_two_center_vertices(closest_lanelet_on_outer_circle, current_lanelet)
+                                    path[:-(len(current_lanelet.center_vertices) - idx_minimum_two)]
+                                    path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one:])
+
                                     #solange successor suchen, bis abstand zu outgoing < 4
                                     #außen im Kreisverkehr bis Ausgang fahren
-                                    path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_nearest_point:])
                                     while closest_lanelet_on_outer_circle is not None:
                                         rospy.loginfo("Extend path with next lane")
-                                    
+                                        minimum, idx_minimum_outgoing, idx_minimum_closest_lanelet = self.intersection_id_of_two_center_vertices(outgoing_lane, closest_lanelet_on_outer_circle)
                                         #vergleichen mit closest_lanelet_on_outer_circle.center_vertices
                                         distances_to_outgoing_center_vertices = [np.linalg.norm(outgoing_lane.center_vertices - p, axis=1) for p in closest_lanelet_on_outer_circle.center_vertices]
                                         # distances_to_outgoing_center_vertices = np.linalg.norm(outgoing_lane.center_vertices - closest_lanelet_on_outer_circle.center_vertices[-1], axis=1)
                                         if len(distances_to_outgoing_center_vertices) > 0:
-                                            if np.min(distances_to_outgoing_center_vertices) < 10:
-                                                rospy.loginfo("next Lane is outgoing_lane")
-                                                path.extend(outgoing_lane.center_vertices[10:])
+                                            if np.min(minimum) < 2:
+                                                rospy.loginfo(f"next Lane is outgoing_lane with distance = {minimum}")
+                                                path[:-(len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)]
+                                                path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
                                                 closest_lanelet_on_outer_circle = None
                                             else:
                                                 rospy.loginfo(np.min(distances_to_outgoing_center_vertices))
