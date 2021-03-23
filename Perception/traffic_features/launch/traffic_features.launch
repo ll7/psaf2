@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="traffic_features" type="traffic_features.py" name="traffic_features" output="screen">
-  </node>
-
-</launch>
-
