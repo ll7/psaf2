@@ -5,7 +5,8 @@ import numpy as np
 
 from std_msgs.msg import Float64, String
 from nav_msgs.msg import Odometry
-from custom_carla_msgs.msg import GlobalPathLanelets, LaneStatus
+from geometry_msgs.msg import Point
+from custom_carla_msgs.msg import GlobalPathLanelets, LaneStatus, NextLanelet
 
 from commonroad.common.file_reader import CommonRoadFileReader
 
@@ -26,7 +27,7 @@ class TrafficFeatures:
         self.lanelet_ids_roundabout_inside_outer_circle = None
         
         self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
-        self.distance_roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", Float64, queue_size=1)
+        self.roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", NextLanelet, queue_size=1)
         self.lane_status_pub = rospy.Publisher(f"/psaf/{self.role_name}/lane_status", LaneStatus, queue_size=1)
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
@@ -83,24 +84,24 @@ class TrafficFeatures:
                 break
 
         lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)
+        min_distance_to_outer = np.inf
+
         if lane is None:
             distance = 0
         else:
             if current_lanelet_id in self.intersection_lanelet_ids or current_lanelet_id in self.lanelet_ids_roundabout_inside:
                 distance = np.inf
             elif self.lanelet_ids_roundabout_incoming is not None:
+                distance = np.inf
                 if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
-                    distances_to_outer_circle = []
+                    point_with_min_distance = None
                     for inner_lanelet_id in self.lanelet_ids_roundabout_inside_outer_circle:
-                        inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
+                        inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)               
                         distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)                
-                        distances_to_outer_circle.append(np.min(distances_to_right_vertices))      
-                    # rospy.loginfo(distances_to_outer_circle)              
-                    if len(distances_to_outer_circle) > 0:  
-                        #rospy.loginfo(np.min(distances_to_outer_circle))                   
-                        distance = np.min(distances_to_outer_circle)                        
-                    else: 
-                        distance = np.inf
+                        _min = np.min(distances_to_right_vertices)
+                        if _min < min_distance_to_outer:
+                            min_distance_to_outer = _min
+                            point_with_min_distance = inner_lane.right_vertices[np.argmin(distances_to_right_vertices)]                
             else:
                 distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
                 idx = np.argmin(distances_to_center_vertices)
@@ -110,12 +111,14 @@ class TrafficFeatures:
                     ls.leftLaneId = lane.adj_left
                 if lane.adj_right_same_direction:
                     ls.isMultiLane = True
-                    ls.rightLaneId = lane.adj_right
-        if self.lanelet_ids_roundabout_incoming is not None:
-            if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
-                # rospy.loginfo("On Lanelet to RoundAbout")
-                self.distance_roundabout_pub.publish(distance)
-                self.distance_pub.publish(np.inf)
+                    ls.rightLaneId = lane.adj_right       
+        if min_distance_to_outer < 20:
+            # rospy.loginfo("On Lanelet to RoundAbout")
+            roundabout_msg = NextLanelet()
+            roundabout_msg.isRoundabout = True
+            roundabout_msg.entry_point = Point(point_with_min_distance[0], point_with_min_distance[1], 0)
+            self.roundabout_pub.publish(roundabout_msg)
+            self.distance_pub.publish(np.inf)
         else:
             self.distance_pub.publish(distance)
         self.lane_status_pub.publish(ls)

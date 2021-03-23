@@ -1,0 +1,4 @@
+float64 distance
+bool isInIntersection
+bool isRoundabout
+geometry_msgs/Point entry_point

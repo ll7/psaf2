@@ -5,6 +5,7 @@ from nav_msgs.msg import Odometry
 from custom_carla_msgs.srv import UpdateLocalPath
 
 import rospy
+import math
 
 class Approach(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -23,16 +24,20 @@ class Approach(py_trees.behaviour.Behaviour):
         self.blackboard = py_trees.blackboard.Blackboard()
 
     def update(self):        
-        dist = self.blackboard.get("/psaf/ego_vehicle/distance_next_roundabout")
+        
+        msg = self.blackboard.get("/psaf/ego_vehicle/distance_next_roundabout")
+        self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         # rospy.loginfo("we got a distance to next roundabout")
-        if dist is not None:
-            dist = dist.data
+        if msg is not None and msg.isRoundabout:
+            dist_x = msg.entry_point.x - self.odo.pose.pose.position.x
+            dist_y = msg.entry_point.y - self.odo.pose.pose.position.y
+            dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
+            rospy.loginfo(f"distance to roundabout in roundabout = {dist}")
             if dist != np.inf:
                 v = dist
                 rospy.loginfo("changed target_speed for roundabout")
                 self.target_speed_pub.publish(v)
 
-        self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         self.speed =  np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
         if dist < 5.0:
@@ -85,7 +90,16 @@ class Enter(py_trees.behaviour.Behaviour):
         self.blackboard = py_trees.blackboard.Blackboard()
 
     def update(self):        
-        if self.Successs:
+        msg = self.blackboard.get("/psaf/ego_vehicle/distance_exit_roundabout")
+        self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
+        dist = np.inf
+        if msg is not None:
+            dist_x = msg.x - self.odo.pose.pose.position.x
+            dist_y = msg.y - self.odo.pose.pose.position.y
+            dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
+            
+        rospy.loginfo(f"distance to exit point = {dist}")
+        if dist < 10:       
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING
@@ -99,18 +113,18 @@ class Leave(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.Successs = False
+        rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         return True
 
-
-
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
+        self.update_local_path(leave_intersection=True)
 
 
     def update(self):
         if self.Successs:
-            return py_trees.common.Status.SUCCESS
+            return py_trees.common.Status.FAILURE
         else:
             return py_trees.common.Status.RUNNING
 

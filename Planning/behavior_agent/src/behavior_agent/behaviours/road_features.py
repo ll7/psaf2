@@ -5,6 +5,7 @@ import py_trees
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 import numpy as np
+import math
 
 
 class IntersectionAhead(py_trees.behaviour.Behaviour):
@@ -50,10 +51,15 @@ class RoundaboutAhead(py_trees.behaviour.Behaviour):
 
     def update(self):
         bb = self.blackboard.get("/psaf/ego_vehicle/distance_next_roundabout")
+        self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         if bb is None:
             return py_trees.common.Status.FAILURE
         else:
-            self.dist = bb.data
+            dist_x = bb.entry_point.x - self.odo.pose.pose.position.x
+            dist_y = bb.entry_point.y - self.odo.pose.pose.position.y
+            dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
+            rospy.loginfo(f"distance to roundabout in road_features = {dist}")
+            self.dist = dist
         if self.dist < 20:
             rospy.loginfo("approaching roundabout")
             return py_trees.common.Status.SUCCESS
