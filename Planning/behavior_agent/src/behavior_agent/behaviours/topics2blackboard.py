@@ -24,6 +24,7 @@ def create_node(role_name):
             {'name':f"/psaf/{role_name}/stopline_distance", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name': f"/initialpose", 'msg': PoseWithCovarianceStamped,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name': f"/carla/{role_name}/initialpose", 'msg': PoseWithCovarianceStamped, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name': f"/psaf/{role_name}/traffic_light", 'msg': String, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
          ]
     topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
     for topic in topics:
