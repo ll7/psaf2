@@ -37,6 +37,7 @@ class Lidar(object):
         self.current_lanelet = None
         self.left_lanelet = None
         self.right_lanelet = None     
+        self.points = None
        
         self._odometry_subscriber = rospy.Subscriber(
             "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
@@ -78,10 +79,11 @@ class Lidar(object):
 
         try:
             trans = self.tf_buffer.lookup_transform('map', 'ego_vehicle/lidar/lidar1', rospy.Time())
+            return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-            print("Error in transformation")                       
+            rospy.loginfo("Error in transformation")                       
 
-        return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
+        
 
     def calc_dist(self, points):               
         dist_x = [self._current_pose.position.x - p.pose.position.x for p in points]
@@ -103,18 +105,26 @@ class Lidar(object):
         self.current_pos = np.array([odo.pose.pose.position.x, odo.pose.pose.position.y])    
 
     def lidar_updated(self, msg):
-        points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))
+        self.points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))
+
+    def main_loop(self):
+        if self.points is None:
+            return
+        points = self.points
         transformed_lidar_poses = self.transform_lidar_into_map_coords(points)        
-        self.get_right_and_left_lanelet()
+        self.get_right_and_left_lanelet()        
         if self.left_lanelet != None:            
             filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)           
             if len(filtered_poses_left) > 0:                 
-                dist = self.calc_dist(filtered_poses_left)               
+                dist = self.calc_dist(filtered_poses_left)      
+                rospy.loginfo(dist)         
                 if dist > 0 and dist < self.max_dist_lidar:        
                     rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
                     self.obstacle_on_left_lane_pub.publish(dist) 
                 else:
                     self.obstacle_on_left_lane_pub.publish(np.inf) 
+            else:
+                rospy.loginfo("no filtered poses on left lane")
                 
         if self.right_lanelet != None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
@@ -124,10 +134,14 @@ class Lidar(object):
                     rospy.loginfo(f"dist to obstacle on right lane = {dist}")                    
                     self.obstacle_on_right_lane_pub.publish(dist) 
                 else:
-                    self.obstacle_on_right_lane_pub.publish(np.inf)   
+                    self.obstacle_on_right_lane_pub.publish(np.inf)
+            else:
+                rospy.loginfo("no filtered poses on right lane")   
        
     def filter_lidar_poses(self, lanelet, transformed_lidar_poses):
         points = []                
+        if transformed_lidar_poses is None:
+            return points
         for p in transformed_lidar_poses:
             dx = [p.pose.position.x - x for x in lanelet.center_vertices[:,0]]
             dy = [p.pose.position.y - y for y in lanelet.center_vertices[:,1]]            
@@ -156,9 +170,9 @@ class Lidar(object):
         Control loop
         :return:
         """
-        r = rospy.Rate(10)
+        r = rospy.Rate(2)
         while not rospy.is_shutdown():
-
+                self.main_loop()
                 try:
                     r.sleep()
                 except rospy.ROSInterruptException:
