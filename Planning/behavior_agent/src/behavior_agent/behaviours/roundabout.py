@@ -110,7 +110,7 @@ class Enter(py_trees.behaviour.Behaviour):
             dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
             
         rospy.loginfo(f"distance to exit point = {dist}")
-        if dist < 10:       
+        if dist < 8:       
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING
