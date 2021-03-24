@@ -55,15 +55,26 @@ class Wait(py_trees.behaviour.Behaviour):
 
     def setup(self, timeout):
         self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        #service traffic in roundabout
+        # rospy.wait_for_service('look_for_traffic_in_roundabout')
+        # self.update_local_path = rospy.ServiceProxy("look_for_traffic_in_roundabout", UpdateLocalPath)
+
         self.Successs = True
         return True
 
-    def initialise(self):
+    def initialise(self): 
         self.blackboard = py_trees.blackboard.Blackboard()
 
     def update(self):
         rospy.loginfo("update in wait")
         self.target_speed_pub.publish(30)
+        
+        # if self.lane_is_free:
+        #     self.target_speed_pub.publish(30)
+        #     return py_trees.common.Status.SUCCESS
+        # else:
+        #     return py_trees.common.Status.RUNNING
+
         if self.Successs:
             return py_trees.common.Status.SUCCESS
         else:
