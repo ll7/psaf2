@@ -182,11 +182,11 @@ class LocalPlanner:
                                             successor = self.scenario.lanelet_network.find_lanelet_by_id(successor_id)
                                             path.extend(successor.center_vertices)
                                             minimim_succesor, idx_minimum_succesor, idx_minimum_closest = self.intersection_id_of_two_center_vertices(successor, closest_lanelet_on_outer_circle)
-                                            path = path[:-(len(successor.center_vertices) - idx_minimum_succesor)]
-                                            path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest:])                                        
+                                            path = path[:-(len(successor.center_vertices) - idx_minimum_succesor + 2)]
+                                            path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest + 2:])                                        
                                     else:
-                                        path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two)]
-                                        path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one:])
+                                        path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two + 2)]
+                                        path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one + 2:])
                                 
                                     #solange successor suchen, bis abstand zu outgoing < 4
                                     #außen im Kreisverkehr bis Ausgang fahren
@@ -201,8 +201,14 @@ class LocalPlanner:
                                                 #rospy.loginfo(f"next Lane is outgoing_lane with distance = {minimum}")
                                                 less_steps = (len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)
                                                 #rospy.loginfo(f"reduced path with length {len(closest_lanelet_on_outer_circle.center_vertices)} by {less_steps}")
-                                                path = path[:-less_steps]
-                                                path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
+                                                if len(path) > less_steps + 3:
+                                                    path = path[:-(less_steps + 3)]
+                                                else: 
+                                                    path = path[:-less_steps]                                               
+                                                if len(outgoing_lane.center_vertices) > idx_minimum_outgoing + 3:
+                                                    path.extend(outgoing_lane.center_vertices[(idx_minimum_outgoing + 3):])
+                                                else: 
+                                                    path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
                                                 closest_lanelet_on_outer_circle = None
                                                 self.roundabout_exit_pub.publish(Point(outgoing_lane.center_vertices[-1][0], outgoing_lane.center_vertices[-1][1], 0))
                                             else:

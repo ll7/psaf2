@@ -33,9 +33,9 @@ class Approach(py_trees.behaviour.Behaviour):
             dist_y = msg.entry_point.y - self.odo.pose.pose.position.y
             dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
             rospy.loginfo(f"distance to roundabout in roundabout = {dist}")
-            if dist != np.inf:
-                v = dist
-                rospy.loginfo("changed target_speed for roundabout")
+            if dist < 20:
+                v = 30
+                # rospy.loginfo("changed target_speed for roundabout")
                 self.target_speed_pub.publish(v)
 
         self.speed =  np.sqrt(
