@@ -22,6 +22,8 @@ def create_node(role_name):
             {'name':f"/psaf/{role_name}/global_path_lanelets", 'msg':GlobalPathLanelets ,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/lane_status", 'msg':LaneStatus ,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/stopline_distance", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/psaf/{role_name}/obstacle_on_left_lane", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/psaf/{role_name}/obstacle_on_right_lane", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name': f"/initialpose", 'msg': PoseWithCovarianceStamped,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name': f"/carla/{role_name}/initialpose", 'msg': PoseWithCovarianceStamped, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
          ]

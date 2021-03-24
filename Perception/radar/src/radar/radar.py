@@ -46,7 +46,6 @@ class Radar(object):
 
     def debug_filter_points(self, points):
         """Creates a PointCloud2 Object from array of Poses that is then published for debug purposes
-
         Args:
             points ([type]): array of poses in map frame
         """
@@ -60,7 +59,6 @@ class Radar(object):
     def calc_dist(self, points):
         """calculates distance of the closest point in points and publishes its distance
         if no points are passed for safety_time it publishes safety_distance
-
         Args:
             points ([type]): array of poses in map frame
         """                  
@@ -79,11 +77,9 @@ class Radar(object):
 
     def filter_poses(self, max_dist_to_path, poses_transformed):
         """filters a list of poses by their distance to the path
-
         Args:
             max_dist_to_path (Float): maximum distance a point can be from the path to be included
             poses_transformed ([type]): list of poses to consider
-
         Returns:
             [type]: filtered list of points
         """
@@ -104,7 +100,6 @@ class Radar(object):
         """transforms a list of points from ego_vehicle/radar/front frame to map frame using tf2 and the current transformation
         Args:
             points ([type]): points in ego_vehicle/radar/front frame
-
         Returns:
             [type]: points in map frame
         """
@@ -128,7 +123,6 @@ class Radar(object):
     def radar_updated(self, msg):
         """
         Callback on Radar data, that performs the processing pipeline
-
         """
         if self.path != None:
             points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))           
@@ -151,6 +145,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
