@@ -116,27 +116,66 @@ class Lidar(object):
         if self.left_lanelet != None:            
             filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)           
             if len(filtered_poses_left) > 0:                 
-                dist = self.calc_dist(filtered_poses_left)      
-                rospy.loginfo(dist)         
+                dist = self.calc_dist(filtered_poses_left)           
                 if dist > 0 and dist < self.max_dist_lidar:        
-                    rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
+                    # rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
                     self.obstacle_on_left_lane_pub.publish(dist) 
                 else:
                     self.obstacle_on_left_lane_pub.publish(np.inf) 
             else:
-                rospy.loginfo("no filtered poses on left lane")
+                #successor
+                filtered_poses_left = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(self.left_lanelet.successor[0]), transformed_lidar_poses)
+
+                if len(filtered_poses_left) > 0:                 
+                    dist = self.calc_dist(filtered_poses_left)           
+                    if dist > 0 and dist < self.max_dist_lidar:        
+                        # rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
+                        self.obstacle_on_left_lane_pub.publish(dist) 
+                    else:
+                        self.obstacle_on_left_lane_pub.publish(np.inf)
+                else:
+                    #predecessor
+                    filtered_poses_left = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(self.left_lanelet.predecessor[0]), transformed_lidar_poses)
+
+                    if len(filtered_poses_left) > 0:                 
+                        dist = self.calc_dist(filtered_poses_left)           
+                        if dist > 0 and dist < self.max_dist_lidar:        
+                            # rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
+                            self.obstacle_on_left_lane_pub.publish(dist) 
+                        else:
+                            self.obstacle_on_left_lane_pub.publish(np.inf)
                 
         if self.right_lanelet != None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
             if len(filtered_poses_right) > 0:                
                 dist = self.calc_dist(filtered_poses_right)               
                 if dist > 0 and dist < self.max_dist_lidar:  
-                    rospy.loginfo(f"dist to obstacle on right lane = {dist}")                    
+                    # rospy.loginfo(f"dist to obstacle on right lane = {dist}")                    
                     self.obstacle_on_right_lane_pub.publish(dist) 
                 else:
-                    self.obstacle_on_right_lane_pub.publish(np.inf)
+                    self.obstacle_on_right_lane_pub.publish(np.inf)  
             else:
-                rospy.loginfo("no filtered poses on right lane")   
+                #successor
+                filtered_poses_right = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(self.right_lanelet.successor[0]), transformed_lidar_poses)
+
+                if len(filtered_poses_right) > 0:                 
+                    dist = self.calc_dist(filtered_poses_right)           
+                    if dist > 0 and dist < self.max_dist_lidar:        
+                        # rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
+                        self.obstacle_on_right_lane_pub.publish(dist) 
+                    else:
+                        self.obstacle_on_right_lane_pub.publish(np.inf)
+                else:
+                    #predecessor
+                    filtered_poses_right = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(self.right_lanelet.predecessor[0]), transformed_lidar_poses)
+
+                    if len(filtered_poses_right) > 0:                 
+                        dist = self.calc_dist(filtered_poses_right)           
+                        if dist > 0 and dist < self.max_dist_lidar:        
+                            # rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
+                            self.obstacle_on_right_lane_pub.publish(dist) 
+                        else:
+                            self.obstacle_on_right_lane_pub.publish(np.inf)          
        
     def filter_lidar_poses(self, lanelet, transformed_lidar_poses):
         points = []                
@@ -170,7 +209,7 @@ class Lidar(object):
         Control loop
         :return:
         """
-        r = rospy.Rate(2)
+        r = rospy.Rate(10)
         while not rospy.is_shutdown():
                 self.main_loop()
                 try:
