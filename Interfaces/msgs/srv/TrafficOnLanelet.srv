@@ -1,0 +1,4 @@
+bool isRoundabout
+int32 lanelet_id
+---
+bool Free

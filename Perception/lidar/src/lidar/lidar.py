@@ -12,6 +12,7 @@ import tf2_geometry_msgs
 from geometry_msgs.msg import PoseStamped, Pose
 
 from commonroad.common.file_reader import CommonRoadFileReader
+from custom_carla_msgs.srv import TrafficOnLanelet
 #from custom_carla_msgs.msg import GlobalPathLanelets
 
 class Lidar(object):  
@@ -204,6 +205,44 @@ class Lidar(object):
                     if self.current_lanelet.adj_right is not None:
                         self.right_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(self.current_lanelet.adj_right)
                            
+    def check_lanelet_free(self, req):
+        lanelet_id = req.lanelet_id
+        if lanelet_id != 0:                    
+            lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lane_id)
+            if self.points is None:
+                return
+            points = self.points
+            transformed_lidar_poses = self.transform_lidar_into_map_coords(points)    
+            if lanelet is not None:            
+                filtered_poses = self.filter_lidar_poses(self.lanelet, transformed_lidar_poses)           
+                if len(filtered_poses) > 0:                 
+                    dist = self.calc_dist(filtered_poses)           
+                    if dist > 0 and dist < self.max_dist_lidar:        
+                        return False 
+                    else:
+                        return True 
+                else:
+                    #successor
+                    filtered_poses = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(lanelet.successor[0]), transformed_lidar_poses)
+                    if len(filtered_poses) > 0:                 
+                        dist = self.calc_dist(filtered_poses)           
+                        if dist > 0 and dist < self.max_dist_lidar:        
+                            return False                     
+                        else:
+                            return True
+                    else:
+                        #predecessor
+                        filtered_poses = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0]), transformed_lidar_poses)
+
+                        if len(filtered_poses) > 0:                 
+                            dist = self.calc_dist(filtered_poses)           
+                            if dist > 0 and dist < self.max_dist_lidar:        
+                                return False
+                            else:
+                                return True
+        return True     
+                    
+    
     def run(self):
         """
         Control loop
@@ -216,11 +255,13 @@ class Lidar(object):
                     r.sleep()
                 except rospy.ROSInterruptException:
                     pass
+        
 
 def main():
     rospy.init_node('lidar', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")    
     lidar = Lidar(role_name)
+    s = rospy.Service("check_lanelet_free", TrafficOnLanelet, lidar.check_lanelet_free)
     try:
         lidar.run()
     finally:
@@ -229,6 +270,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
 
 
 
