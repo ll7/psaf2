@@ -114,7 +114,7 @@ class Lidar(object):
         points = self.points
         transformed_lidar_poses = self.transform_lidar_into_map_coords(points)        
         self.get_right_and_left_lanelet()        
-        if self.left_lanelet != None:            
+        if self.left_lanelet is not None:            
             filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)           
             if len(filtered_poses_left) > 0:                 
                 dist = self.calc_dist(filtered_poses_left)           
@@ -146,7 +146,7 @@ class Lidar(object):
                         else:
                             self.obstacle_on_left_lane_pub.publish(np.inf)
                 
-        if self.right_lanelet != None:            
+        if self.right_lanelet is not None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
             if len(filtered_poses_right) > 0:                
                 dist = self.calc_dist(filtered_poses_right)               
