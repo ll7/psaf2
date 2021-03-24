@@ -30,7 +30,7 @@ class Start(py_trees.behaviour.Behaviour):
             if bb_dist is not None:
                 is_next_intersection = bb_dist.isInIntersection
                 if is_next_intersection:
-                    success_local_path = self.update_local_path(approach_intersection=True)
+                    success_local_path = self.update_local_path()
                 else:
                     success_local_path = self.update_local_path(leave_intersection=True)
                 if success_local_path:

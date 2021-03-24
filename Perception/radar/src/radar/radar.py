@@ -9,14 +9,6 @@ from helper_functions import next_point_on_path
 import tf2_ros
 import tf2_geometry_msgs
 from geometry_msgs.msg import PoseStamped, Pose
-from sensor_msgs.msg import PointCloud2
-from std_msgs.msg import Float64
-import sensor_msgs.point_cloud2 as pc2
-from nav_msgs.msg import Path, Odometry
-from helper_functions import next_point_on_path
-import tf2_ros
-import tf2_geometry_msgs
-from geometry_msgs.msg import PoseStamped, Pose
 
 class Radar(object): 
     """ Determines distance to car in front
@@ -54,7 +46,6 @@ class Radar(object):
 
     def debug_filter_points(self, points):
         """Creates a PointCloud2 Object from array of Poses that is then published for debug purposes
-
         Args:
             points ([type]): array of poses in map frame
         """
@@ -68,7 +59,6 @@ class Radar(object):
     def calc_dist(self, points):
         """calculates distance of the closest point in points and publishes its distance
         if no points are passed for safety_time it publishes safety_distance
-
         Args:
             points ([type]): array of poses in map frame
         """                  
@@ -87,11 +77,9 @@ class Radar(object):
 
     def filter_poses(self, max_dist_to_path, poses_transformed):
         """filters a list of poses by their distance to the path
-
         Args:
             max_dist_to_path (Float): maximum distance a point can be from the path to be included
             poses_transformed ([type]): list of poses to consider
-
         Returns:
             [type]: filtered list of points
         """
@@ -112,7 +100,6 @@ class Radar(object):
         """transforms a list of points from ego_vehicle/radar/front frame to map frame using tf2 and the current transformation
         Args:
             points ([type]): points in ego_vehicle/radar/front frame
-
         Returns:
             [type]: points in map frame
         """
@@ -136,186 +123,11 @@ class Radar(object):
     def radar_updated(self, msg):
         """
         Callback on Radar data, that performs the processing pipeline
-
         """
         if self.path != None:
             points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))           
             transformed_radar_poses = self.transform_into_map_coords(points)
             points = self.filter_poses(self.max_dist_to_path, transformed_radar_poses)
-            self.debug_filter_points(points)
-            self.calc_dist(points)
-            
-    def route_updated(self, path):
-        self.path = path
-        self._current_pose = Pose()
-        self.current_time = rospy.get_time()
-        self.role_name = role_name
-        self.path = None        
-
-        self._radar_subscriber = rospy.Subscriber(
-            f"/carla/{role_name}/radar/front/radar_points", PointCloud2, self.radar_updated)
-        self._dist_publisher = rospy.Publisher(f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
-        self._route_subscriber = rospy.Subscriber(
-            f"/psaf/{role_name}/global_path", Path, self.route_updated)
-        self._odometry_subscriber = rospy.Subscriber(
-            "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
-        self._points_publisher = rospy.Publisher(f"psaf/{role_name}/radar/points", PointCloud2, queue_size=1)
-        
-        self.tf_buffer = tf2_ros.Buffer(rospy.Duration(0)) #tf buffer length
-        tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-    
-    def odometry_updated(self, odo):
-        """
-        callback on new odometry data
-        """
-        self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
-                                        odo.twist.twist.linear.y ** 2 +
-                                        odo.twist.twist.linear.z ** 2) * 3.6
-        self._current_pose = odo.pose.pose
-
-    def debug_filter_points(self, points):
-        cloud_msg = PointCloud2()
-        cloud_msg.header.frame_id = "map"
-        cloud_msg.header.stamp = rospy.Time.now()            
-        xyz = [[p.pose.position.x, p.pose.position.y, p.pose.position.z] for p in points]                       
-        point_cloud = pc2.create_cloud_xyz32(cloud_msg.header, xyz)
-        self._points_publisher.publish(point_cloud)  
-
-    def calc_dist(self, points):               
-        dist_x = [self._current_pose.position.x - p.pose.position.x for p in points]
-        dist_y = [self._current_pose.position.y - p.pose.position.y for p in points]
-        dist = np.hypot(dist_x,dist_y) 
-        if len(dist) > 0:
-            self._dist_publisher.publish(min(dist))
-            self.current_time = rospy.get_time()
-        else:                
-            if rospy.get_time() > self.current_time + self.safety_time:
-                self._dist_publisher.publish(self.safety_distance)   
-                self.current_time = rospy.get_time() 
-
-    def filter_poses(self, max_dist_to_path, poses_transformed):
-        px =[posen.pose.position.x for posen in self.path.poses]
-        py =[posen.pose.position.y for posen in self.path.poses]
-        points = []        
-        for p in poses_transformed:
-            dx =[p.pose.position.x - icx for icx in px]
-            dy =[p.pose.position.y - icy for icy in py]
-            d = np.hypot(dx,dy)           
-            dist = min(d)            
-            if dist < max_dist_to_path:                    
-                points.append(p)
-        return points   
-
-    def transform_into_map_coords(self, points):
-        poses = []
-        for p in points:
-            pose = PoseStamped()
-            pose.header.frame_id = "ego_vehicle/radar/front"
-            pose.header.stamp = rospy.Time.now()
-            pose.pose.position.x = p[0]
-            pose.pose.position.y = p[1]
-            pose.pose.position.z = p[2]
-            poses.append(pose)
-
-        try:
-            trans = self.tf_buffer.lookup_transform('map', 'ego_vehicle/radar/front', rospy.Time())
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-            print("Error in transformation")                       
-
-        return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
-
-    def radar_updated(self, msg):
-        if self.path != None:
-            points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))           
-            transformed_radar_poses = self.transform_into_map_coords(points)
-            points = self.filter_poses(2, transformed_radar_poses)
-            self.debug_filter_points(points)
-            self.calc_dist(points)
-            
-    def route_updated(self, path):
-        self.path = path
-        self._current_pose = Pose()
-        self.current_time = rospy.get_time()
-        self.role_name = role_name
-        self.path = None        
-
-        self._radar_subscriber = rospy.Subscriber(
-            f"/carla/{role_name}/radar/front/radar_points", PointCloud2, self.radar_updated)
-        self._dist_publisher = rospy.Publisher(f"psaf/{role_name}/radar/distance", Float64, queue_size=1)
-        self._route_subscriber = rospy.Subscriber(
-            f"/psaf/{role_name}/global_path", Path, self.route_updated)
-        self._odometry_subscriber = rospy.Subscriber(
-            "/carla/{}/odometry".format(role_name), Odometry, self.odometry_updated)
-        self._points_publisher = rospy.Publisher(f"psaf/{role_name}/radar/points", PointCloud2, queue_size=1)
-        
-        self.tf_buffer = tf2_ros.Buffer(rospy.Duration(0)) #tf buffer length
-        tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-    
-    def odometry_updated(self, odo):
-        """
-        callback on new odometry data
-        """
-        self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
-                                        odo.twist.twist.linear.y ** 2 +
-                                        odo.twist.twist.linear.z ** 2) * 3.6
-        self._current_pose = odo.pose.pose
-
-    def debug_filter_points(self, points):
-        cloud_msg = PointCloud2()
-        cloud_msg.header.frame_id = "map"
-        cloud_msg.header.stamp = rospy.Time.now()            
-        xyz = [[p.pose.position.x, p.pose.position.y, p.pose.position.z] for p in points]                       
-        point_cloud = pc2.create_cloud_xyz32(cloud_msg.header, xyz)
-        self._points_publisher.publish(point_cloud)  
-
-    def calc_dist(self, points):               
-        dist_x = [self._current_pose.position.x - p.pose.position.x for p in points]
-        dist_y = [self._current_pose.position.y - p.pose.position.y for p in points]
-        dist = np.hypot(dist_x,dist_y) 
-        if len(dist) > 0:
-            self._dist_publisher.publish(min(dist))
-            self.current_time = rospy.get_time()
-        else:                
-            if rospy.get_time() > self.current_time + self.safety_time:
-                self._dist_publisher.publish(self.safety_distance)   
-                self.current_time = rospy.get_time() 
-
-    def filter_poses(self, max_dist_to_path, poses_transformed):
-        px =[posen.pose.position.x for posen in self.path.poses]
-        py =[posen.pose.position.y for posen in self.path.poses]
-        points = []        
-        for p in poses_transformed:
-            dx =[p.pose.position.x - icx for icx in px]
-            dy =[p.pose.position.y - icy for icy in py]
-            d = np.hypot(dx,dy)           
-            dist = min(d)            
-            if dist < max_dist_to_path:                    
-                points.append(p)
-        return points   
-
-    def transform_into_map_coords(self, points):
-        poses = []
-        for p in points:
-            pose = PoseStamped()
-            pose.header.frame_id = "ego_vehicle/radar/front"
-            pose.header.stamp = rospy.Time.now()
-            pose.pose.position.x = p[0]
-            pose.pose.position.y = p[1]
-            pose.pose.position.z = p[2]
-            poses.append(pose)
-
-        try:
-            trans = self.tf_buffer.lookup_transform('map', 'ego_vehicle/radar/front', rospy.Time())
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-            print("Error in transformation")                       
-
-        return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
-
-    def radar_updated(self, msg):
-        if self.path != None:
-            points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))           
-            transformed_radar_poses = self.transform_into_map_coords(points)
-            points = self.filter_poses(2, transformed_radar_poses)
             self.debug_filter_points(points)
             self.calc_dist(points)
             
@@ -333,6 +145,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-

@@ -41,7 +41,7 @@ class WaitLeftLaneFree(py_trees.behaviour.Behaviour):
     def update(self):        
         self.car_left = self.blackboard.get("/psaf/ego_vehicle/obstacle_on_left_lane")
         if self.car_left is None:
-            return py_trees.common.Status.Failure
+            return py_trees.common.Status.FAILURE
         elif self.car_left.data > 20 or self.car_left.data is None:
             return py_trees.common.Status.SUCCESS
         elif (self.timer + 2) < rospy.get_time():
@@ -67,7 +67,7 @@ class WaitRightLaneFree(py_trees.behaviour.Behaviour):
     def update(self):
         self.car_right = self.blackboard.get("/psaf/ego_vehicle/obstacle_on_right_lane")
         if self.car_right is None:
-            return py_trees.common.Status.Failure
+            return py_trees.common.Status.FAILURE
         elif self.car_right.data > 20 or self.car_right.data is None:
             return py_trees.common.Status.SUCCESS
         elif (self.timer + 2) < rospy.get_time():

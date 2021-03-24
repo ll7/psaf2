@@ -27,6 +27,8 @@ class Lidar(object):
         self.current_pos = np.zeros(shape=2)
         self.current_time = rospy.get_time()
         self.role_name = role_name
+
+        self.max_dist_lidar = 15
         
         self.scenario = None 
         self.planning_problem = None  
@@ -53,7 +55,7 @@ class Lidar(object):
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
         self.scenario.scenario_id = "DEU"
-         
+
 
     def debug_filter_points(self, points):
         cloud_msg = PointCloud2()
@@ -102,22 +104,22 @@ class Lidar(object):
 
     def lidar_updated(self, msg):
         points = pc2.read_points(msg, skip_nans=True, field_names=("x","y","z"))
-        transformed_lidar_poses = self.transform_lidar_into_map_coords(points)
+        transformed_lidar_poses = self.transform_lidar_into_map_coords(points)        
         self.get_right_and_left_lanelet()
-        if self.left_lanelet != None:
-            filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)            
-            if len(filtered_poses_left) > 0: 
+        if self.left_lanelet != None:            
+            filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)           
+            if len(filtered_poses_left) > 0:                 
                 dist = self.calc_dist(filtered_poses_left)               
-                if dist > 0:
+                if dist > 0 and dist < self.max_dist_lidar:                    
                     self.obstacle_on_left_lane_pub.publish(dist) 
                 else:
                     self.obstacle_on_left_lane_pub.publish(None) 
                 
-        if self.right_lanelet != None:
+        if self.right_lanelet != None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
-            if len(filtered_poses_right) > 0:
-                dist = selfcalc_dist(filtered_poses_right)               
-                if dist > 0:
+            if len(filtered_poses_right) > 0:                
+                dist = self.calc_dist(filtered_poses_right)               
+                if dist > 0 and dist < self.max_dist_lidar:                    
                     self.obstacle_on_right_lane_pub.publish(dist) 
                 else:
                     self.obstacle_on_right_lane_pub.publish(None)   
@@ -134,18 +136,17 @@ class Lidar(object):
         return points
 
     def get_right_and_left_lanelet(self):
-        if self.scenario != None:
+        if self.scenario is not None:
             possible_lanelet_ids = self.scenario.lanelet_network.find_lanelet_by_position([np.array(list(self.current_pos))])[0]
             self.current_lanelet = None
             self.right_lanelet = None
-            self.left_lanelet = None
-            for lane_id in possible_lanelet_ids:
-                 
+            self.left_lanelet = None            
+            for lane_id in possible_lanelet_ids:  
                 self.current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lane_id)     
-                if self.current_lanelet != None:
-                    if self.current_lanelet.adj_left != None:
+                if self.current_lanelet is not None:
+                    if self.current_lanelet.adj_left is not None:
                         self.left_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(self.current_lanelet.adj_left)
-                    if self.current_lanelet.adj_right != None:
+                    if self.current_lanelet.adj_right is not None:
                         self.right_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(self.current_lanelet.adj_right)
                            
     def run(self):
