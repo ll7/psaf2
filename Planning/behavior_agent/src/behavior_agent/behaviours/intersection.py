@@ -28,6 +28,12 @@ class Approach(py_trees.behaviour.Behaviour):
         rospy.loginfo("start approaching behavior")
 
     def update(self):
+        light_status = self.blackboard.get("/psaf/ego_vehicle/traffic_light")
+        if light_status is None:
+            return py_trees.common.Status.SUCCESS
+        else:
+            light_status = light_status.data
+
         # if no stop line seen within 3 seconds, return success
         if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
             rospy.loginfo("time up for waiting for stop line")
@@ -51,18 +57,22 @@ class Approach(py_trees.behaviour.Behaviour):
         # if stop line has been detected and now there is none, we've passed it and need to break immediately
         if self.stopline_detected and self.stopline_distance == np.inf:
             rospy.loginfo("ran over stop line")
-            self.target_speed_pub.publish(0)
+            if light_status == "red" or light_status == "yellow" or light_status == "":
+                self.target_speed_pub.publish(0)
 
         # calculate speed depending on the distance to stop line
-        if self.stopline_detected and self.stopline_distance != np.inf:
+        if self.stopline_detected and self.stopline_distance != np.inf or light_status == "":
             v = 30 * self.stopline_distance
-            self.target_speed_pub.publish(v)
+            if light_status == "red" or light_status == "yellow":
+                self.target_speed_pub.publish(v)
 
         # check if speed is 0
         self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
-        self.speed =  np.sqrt(
+        self.speed = np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
-        if self.speed < 1:
+        if self.speed < 2:
+            return py_trees.common.Status.SUCCESS
+        elif self.stopline_detected and self.stopline_distance != np.inf:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING
@@ -81,16 +91,19 @@ class Wait(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
-        self.target_speed_pub.publish(0)
+        return True
 
     def update(self):
-        self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
-        self.speed =  np.sqrt(
-            self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
-        if self.speed < 5:
+        light_status = self.blackboard.get("/psaf/ego_vehicle/traffic_light")
+        if light_status is None:
             return py_trees.common.Status.SUCCESS
         else:
+            light_status = light_status.data
+        if light_status == "red" or light_status == "yellow":
+            self.target_speed_pub.publish(0)
             return py_trees.common.Status.RUNNING
+        else:
+            return py_trees.common.Status.SUCCESS
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
