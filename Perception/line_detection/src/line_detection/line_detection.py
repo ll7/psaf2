@@ -27,7 +27,7 @@ class LineDetector(object):
         self.cluster_bandwidth = 0.1
         self.cluster_resolution = 10000
         self.stopline_threshold = 0.15 * np.pi
-        self.stopline_len_threshold = 0.3 * self.imgwidth
+        self.stopline_len_threshold = 0.35 * self.imgwidth
         self.debug_mode = False # if true, roadmark image and cv2 lines are published
         
     def run_step(self):
