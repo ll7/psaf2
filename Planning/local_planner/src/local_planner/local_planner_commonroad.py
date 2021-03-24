@@ -107,8 +107,12 @@ class LocalPlanner:
                     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor
                         if lane_id in sector:
                             break
-                    next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(
-                        self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
+                    try:
+                        next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(
+                            self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
+                    except IndexError:
+                        rospy.loginfo("Local Planner Intersection Approaching: No successor found")
+                        return
                     if next_lanelet.predecessor[0] == lane_id:  # no lane change
                         rospy.loginfo("Keep Lane")
                         path.extend(current_lanelet.center_vertices[idx_nearest_point:])
@@ -116,13 +120,18 @@ class LocalPlanner:
                         path.extend(self._change_lane(current_lanelet, idx_nearest_point, left=True))
                     elif next_lanelet.predecessor[0] == current_lanelet.adj_right:  # lane change right
                         path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
-                    rospy.loginfo("Turn")
                     path.extend(next_lanelet.center_vertices[:])  # add center vertices of intersection lanelet
                 elif leave_intersection:
-                    next_lanelet_id = current_lanelet.successor[0]
-                    next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(next_lanelet_id)
-                    path.extend(current_lanelet.center_vertices[idx_nearest_point:])
-                    path.extend(next_lanelet.center_vertices[:])
+                    rospy.loginfo("Leave Intersection")
+                    for successor in current_lanelet.successor:
+                        if successor in self.adjacent_lanelets_flattened:
+                            rospy.loginfo(f"successor lanlet: {successor}")
+                            next_lanelet_id = successor
+                            next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(next_lanelet_id)
+                            path.extend(current_lanelet.center_vertices[idx_nearest_point:])
+                            path.extend(next_lanelet.center_vertices[:])
+                            rospy.loginfo("Local Planner Intersection Leaving: Successor found")
+                            break
                 else:
                     path.extend(current_lanelet.center_vertices[idx_nearest_point:])
 

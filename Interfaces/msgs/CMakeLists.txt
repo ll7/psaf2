@@ -15,12 +15,14 @@ add_message_files(
   CommonroadMap.msg
   GlobalPathLanelets.msg
   LaneStatus.msg
+  NextLanelet.msg
 )
 
 add_service_files(
   DIRECTORY srv
   FILES
   UpdateLocalPath.srv
+  UpdateGlobalPath.srv
 )
 generate_messages(
   DEPENDENCIES

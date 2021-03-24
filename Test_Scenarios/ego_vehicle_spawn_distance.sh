@@ -8,7 +8,7 @@ gnome-terminal --execute bash -c "python scenario_overtaking.py; bash"
 <<<<<<< HEAD
 <<<<<<< HEAD
 sleep 1s
-gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 30.0"
+gnome-terminal --execute bash -c "rostopic pub /psaf/ego_vehicle/target_speed std_msgs/Float64 30.0"
 
 =======
 >>>>>>> changed .sh

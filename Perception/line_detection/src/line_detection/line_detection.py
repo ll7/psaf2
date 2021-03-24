@@ -5,25 +5,30 @@ from std_msgs.msg import Float64
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import math
-
 from numpy import array, linspace
 from sklearn.neighbors import KernelDensity
 from scipy.signal import argrelextrema
 
 
 class LineDetector(object):
+    """
+    Class to detect lines in images from semantic segmentation.
+    """
 
     def __init__(self, role_name):
-            self.bridge = CvBridge()
-            self.imgwidth = 400
-            self.imgheight = 300
-            self._semantic_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
-            self._roadmark_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
-            self._semanticseg_subscriber = rospy.Subscriber("/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semanticseg_updated)
-            self.roadmark_publisher = rospy.Publisher("/psaf/{}/roadmark".format(role_name), Image, queue_size=1)   
-            self.stopline_publisher = rospy.Publisher("/psaf/{}/stopline_distance".format(role_name), Float64, queue_size=1) 
-            self.cluster_bandwidth = 0.1
-            self.cluster_resolution = 10000
+        self.bridge = CvBridge()
+        self.imgwidth = 400
+        self.imgheight = 300
+        self._semantic_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
+        self._roadmark_img = np.zeros((self.imgheight, self.imgwidth, 3), np.uint8)
+        self._semanticseg_subscriber = rospy.Subscriber("/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semanticseg_updated)
+        self.roadmark_publisher = rospy.Publisher("/psaf/{}/roadmark".format(role_name), Image, queue_size=1)   
+        self.stopline_publisher = rospy.Publisher("/psaf/{}/stopline_distance".format(role_name), Float64, queue_size=1) 
+        self.cluster_bandwidth = 0.1
+        self.cluster_resolution = 10000
+        self.stopline_threshold = 0.15 * np.pi
+        self.stopline_len_threshold = 0.3 * self.imgwidth
+        self.debug_mode = False # if true, roadmark image and cv2 lines are published
         
     def run_step(self):
         """
@@ -57,30 +62,29 @@ class LineDetector(object):
             clusters = self.make_clusters(pos_angles)
              
             if clusters is not None:
+                # make clusters and compute representative for each one
                 cluster_bounds = self.convert_clusters(clusters)
                 lines_cluster = self.group_lines(cluster_bounds, lines)
                 fangles, ypos, lengths = self.merge_cluster(lines_cluster)
 
-                stop_line = False
-                distance_to_stop = 0
-                stopline_threshold = 0.15 * np.pi
-                stopline_len_threshold = 0.3 * self.imgwidth
+                # check if one representative could be a stop line
+                distance_to_stop = np.inf
                 for idx, a in enumerate(fangles):
-                    if abs(a) < stopline_threshold and lengths[idx] > stopline_len_threshold:
-                        stop_line = True
+                    if abs(a) < self.stopline_threshold and lengths[idx] > self.stopline_len_threshold:
                         distance_to_stop = (self.imgheight - ypos[idx]) / self.imgheight
                         break
                 
-                if stop_line:
-                    self.stopline_publisher.publish(distance_to_stop)
-                else:
-                    self.stopline_publisher.publish(np.inf)
+                # if there is a stopline publish the relative distance to it
+                # (between 0 and 1), otherwise publish ifinity
+                self.stopline_publisher.publish(distance_to_stop)
 
-        try:
-            im = self.bridge.cv2_to_imgmsg(self._roadmark_img)
-            self.roadmark_publisher.publish(im)
-        except CvBridgeError as e:
-            print(e)
+        # publish image with roadmarks and lines
+        if self.debug_mode:
+            try:
+                im = self.bridge.cv2_to_imgmsg(self._roadmark_img)
+                self.roadmark_publisher.publish(im)
+            except CvBridgeError as e:
+                print(e)
 
     def group_lines(self, cluster_bounds, lines):
         """
@@ -137,12 +141,11 @@ class LineDetector(object):
                 color = colors[idx]
             cv2.line(self._roadmark_img,(x1,y1),(x2,y2),color,3)
             angle = np.arctan2(y2-y1,x2-x1)
-            #if angle < 0:
-            #    angle += np.pi
             fangles.append(angle)
             ystar = (y1 + y2) / 2
             ypos.append(ystar)
             lengths.append(length)
+
         return fangles, ypos, lengths
 
     def compute_offset(self, fangles):
@@ -218,13 +221,19 @@ class LineDetector(object):
         return clusters
 
     def semanticseg_updated(self, data):
+        """
+        Update semantic segmentation image data.
+        """
         try:
             self._semantic_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)
 
     def run(self):
-        r = rospy.Rate(250)
+        """
+        With a rate of 10Hz update line detection.
+        """
+        r = rospy.Rate(10)
         while not rospy.is_shutdown():
             self.run_step()
             try:
