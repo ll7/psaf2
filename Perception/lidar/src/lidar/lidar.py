@@ -28,7 +28,7 @@ class Lidar(object):
         self.current_time = rospy.get_time()
         self.role_name = role_name
 
-        self.max_dist_lidar = 15
+        self.max_dist_lidar = 20
         
         self.scenario = None 
         self.planning_problem = None  
@@ -110,19 +110,21 @@ class Lidar(object):
             filtered_poses_left = self.filter_lidar_poses(self.left_lanelet, transformed_lidar_poses)           
             if len(filtered_poses_left) > 0:                 
                 dist = self.calc_dist(filtered_poses_left)               
-                if dist > 0 and dist < self.max_dist_lidar:                    
+                if dist > 0 and dist < self.max_dist_lidar:        
+                    rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
                     self.obstacle_on_left_lane_pub.publish(dist) 
                 else:
-                    self.obstacle_on_left_lane_pub.publish(None) 
+                    self.obstacle_on_left_lane_pub.publish(np.inf) 
                 
         if self.right_lanelet != None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
             if len(filtered_poses_right) > 0:                
                 dist = self.calc_dist(filtered_poses_right)               
-                if dist > 0 and dist < self.max_dist_lidar:                    
+                if dist > 0 and dist < self.max_dist_lidar:  
+                    rospy.loginfo(f"dist to obstacle on right lane = {dist}")                    
                     self.obstacle_on_right_lane_pub.publish(dist) 
                 else:
-                    self.obstacle_on_right_lane_pub.publish(None)   
+                    self.obstacle_on_right_lane_pub.publish(np.inf)   
        
     def filter_lidar_poses(self, lanelet, transformed_lidar_poses):
         points = []                

@@ -100,7 +100,7 @@
             "channels": 32,
             "points_per_second": 20000,
             "upper_fov": 1.0,
-            "lower_fov": -1.0,
+            "lower_fov": -0.5,
             "rotation_frequency": 20,
             "sensor_tick": 0.05,
             "noise_stddev": 0.0
