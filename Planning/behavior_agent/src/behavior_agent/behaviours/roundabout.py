@@ -74,7 +74,8 @@ class Wait(py_trees.behaviour.Behaviour):
         rospy.loginfo(f"id first_lanelet_roundabout = {first_lanelet_roundabout}")
         if first_lanelet_roundabout is not None:
             success_lanelet_free = self.lanelet_free(isRoundabout=True, lanelet_id=first_lanelet_roundabout.data)
-            if success_lanelet_free:
+            rospy.loginfo(f"success_lanelet_free = {success_lanelet_free.Free}")
+            if success_lanelet_free.Free:
                 self.target_speed_pub.publish(30)
                 rospy.loginfo("success")
                 return py_trees.common.Status.SUCCESS
