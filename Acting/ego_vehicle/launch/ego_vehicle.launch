@@ -55,6 +55,7 @@
   <include file="$(find line_detection)/launch/line_detection.launch">  </include>
   <include file="$(find radar)/launch/radar.launch"> </include>
   <include file="$(find lidar)/launch/lidar.launch"> </include>
+  <include file="$(find side_traffic_detector)/launch/side_traffic_detector.launch"> </include>
 
   <!-- Planning -->
   <include file="$(find global_planner)/launch/global_planner.launch">  </include>  

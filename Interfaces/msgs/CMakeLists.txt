@@ -24,6 +24,7 @@ add_service_files(
   UpdateLocalPath.srv
   UpdateGlobalPath.srv
   TrafficOnLanelet.srv
+  DetectSideTraffic.srv
 )
 generate_messages(
   DEPENDENCIES

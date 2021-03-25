@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="side_traffic_detector" type="side_traffic_detector.py" name="side_traffic_detector" output="screen">
+  </node>
+
+</launch>
+
