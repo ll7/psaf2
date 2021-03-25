@@ -32,3 +32,5 @@ config/objects.json
 ```shell
 roslaunch ego_vehicle ego_vehicle.launch
 ```
+## Authors
+Valentin Höpfner

@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="road_features" type="road_features.py" name="road_features" output="screen">
+  </node>
+
+</launch>
+

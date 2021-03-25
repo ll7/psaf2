@@ -22,6 +22,8 @@ add_service_files(
   DIRECTORY srv
   FILES
   UpdateLocalPath.srv
+  UpdateGlobalPath.srv
+  TrafficOnLanelet.srv
 )
 generate_messages(
   DEPENDENCIES

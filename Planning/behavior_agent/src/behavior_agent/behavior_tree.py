@@ -11,11 +11,12 @@ from behavior_agent import behaviours
 from py_trees.composites import Parallel, Selector, Sequence
 from py_trees.decorators import Inverter
 
+
 def grow_a_tree(role_name):
 
-    root = Parallel("Root", children=[ 
-                                        behaviours.topics2blackboard.create_node(role_name),
+    rules = Parallel("Rules", children=[
                                         Selector("Priorities", children=[
+                                            behaviours.meta.RespawnOrFinish("Respawn or Finish?"),
                                             Inverter(Selector("Avoid Collisions", children=[
                                                 behaviours.avoid_collisions.NoObstacleAhead("No Obstacle Ahead?"),
                                                 Selector("Collision Avoidance Action", children=[
@@ -76,7 +77,8 @@ def grow_a_tree(role_name):
                                                                 behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
                                                             ])
                                                         ])
-                                                    ])
+                                                    ]),
+                                                    Running("Can't Overtake")
                                                 ])),
                                                 # dont turn back to right lane
                                                 #Sequence("Back to Right Lane", children=[
@@ -90,7 +92,102 @@ def grow_a_tree(role_name):
                                             behaviours.maneuvers.Cruise("Cruise")   
                                         ])
                                     ])
-   
+
+    no_rules = Parallel("No_Rules", children=[
+                                        Selector("Priorities", children=[
+                                            behaviours.meta.RespawnOrFinish("Respawn or Finish?"),
+                                            Inverter(Selector("Avoid Collisions", children=[
+                                                behaviours.avoid_collisions.NoObstacleAhead("No Obstacle Ahead?"),
+                                                Selector("Collision Avoidance Action", children=[
+                                                    behaviours.avoid_collisions.ReplanAroundObstacles("Replan around Obstacles"),
+                                                    behaviours.avoid_collisions.EmergencyBrake("Emergency Brake")
+                                                ])
+                                            ])),
+                                            Selector("Road Features", children=[
+                                                Sequence("Intersection", children=[
+                                                    behaviours.road_features.IntersectionAhead("Intersection Ahead"),
+                                                    Sequence("Intersection Actions", children=[
+                                                        behaviours.intersection.Approach("Approach Intersection"),
+                                                        behaviours.intersection.Wait("Wait Intersection"),
+                                                        behaviours.intersection.Enter("Enter Intersection"),
+                                                        behaviours.intersection.Leave("Leave Intersection")
+                                                    ])
+                                                ]),
+                                                Sequence("Roundabout", children=[
+                                                    behaviours.road_features.RoundaboutAhead("Roundabout Ahead"),
+                                                    Sequence("Roundabout Actions", children=[
+                                                        behaviours.roundabout.Approach("Approach Roundabout"),
+                                                        behaviours.roundabout.Wait("Wait Roundabout"),
+                                                        behaviours.roundabout.Enter("Enter Roundabout"),
+                                                        behaviours.roundabout.Leave("Leave Roundabout")
+                                                    ])
+                                                ]),
+                                                Sequence("Stop", children=[
+                                                    behaviours.road_features.StopAhead("Stop Ahead"),
+                                                    Sequence("Stop Actions", children=[
+                                                        behaviours.stop.Approach("Approach Stop"),
+                                                        behaviours.roundabout.Approach("Wait Stop"),
+                                                        behaviours.roundabout.Approach("Leave Stop")
+                                                    ])
+                                                ])
+
+                                            ]),
+                                            Selector("Laneswitching", children=[
+                                                Inverter(Selector("Overtaking", children=[
+                                                    behaviours.traffic_objects.NotSlowedByCarInFront("Not Slowed By Car in Front?"),
+                                                    Selector("Number of Lanes", children=[
+                                                        Sequence("Multi Lane", children=[
+                                                            behaviours.road_features.MultiLane("Multi Lane?"),
+                                                            behaviours.road_features.LeftLaneAvailable("Left Lane Available?"),
+                                                            behaviours.traffic_objects.WaitLeftLaneFree("Wait for Left Lane Free"),
+                                                            behaviours.maneuvers.SwitchLaneLeft("Switch Lane Left")
+                                                        ]),
+                                                        Sequence("Single Lane", children=[
+                                                            behaviours.road_features.SingleLineDotted("Single Lane with dotted Line?"),
+                                                            behaviours.traffic_objects.WaitLeftLaneFree("Wait for Left Lane Free"),
+                                                            behaviours.maneuvers.SwitchLaneLeft("Switch Lane Left"),
+                                                            Selector("Driving on Left Side", children=[
+                                                                Sequence("Overtake", children=[
+                                                                    behaviours.traffic_objects.OvertakingPossible("Overtaking Possible?"),
+                                                                    behaviours.maneuvers.Overtake("Overtake"),
+                                                                    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+
+                                                                ]),
+                                                                behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+                                                            ])
+                                                        ])
+                                                    ]),
+                                                    Running("Can't Overtake")
+                                                ])),
+                                                # dont turn back to right lane
+                                                #Sequence("Back to Right Lane", children=[
+                                                #    behaviours.road_features.RightLaneAvailable("Right Lane Available"),
+                                                #    behaviours.traffic_objects.NotSlowedByCarInFrontRight("Not Slowed By Car in Front Right?"),
+                                                #    behaviours.traffic_objects.WaitRightLaneFree("Wait for Right Lane Free"),
+                                                #    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+                                                #])
+                                            ]),
+
+                                            behaviours.maneuvers.Cruise("Cruise")
+                                        ])
+                                    ])
+
+    metarules = Sequence("Meta", children=[behaviours.meta.Start("Start"), rules, behaviours.meta.End("End")])
+    metanorules = Sequence("Meta", children=[behaviours.meta.Start("Start"), no_rules, behaviours.meta.End("End")])
+    root = Parallel("Root", children=[
+        behaviours.topics2blackboard.create_node(role_name),
+        Selector("Mode", children=[
+            Sequence("Rules", children=[
+                behaviours.meta.Rules("Rules?"),
+                metarules
+            ]),
+            Sequence("No Rules", children=[
+                Inverter(behaviours.meta.Rules("Rules?")),
+                metanorules
+            ]),
+            Running("Idle")
+        ])
+    ])
     return root
 
 

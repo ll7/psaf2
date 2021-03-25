@@ -25,7 +25,8 @@ class TrafficFeatures:
         self.lanelet_ids_roundabout_incoming = None
         self.lanelet_ids_roundabout_outgoing = None
         self.lanelet_ids_roundabout_inside_outer_circle = None
-        
+
+        self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/next_lanelet", NextLanelet, queue_size=1)
         self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
         self.roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", NextLanelet, queue_size=1)
         self.lane_status_pub = rospy.Publisher(f"/psaf/{self.role_name}/lane_status", LaneStatus, queue_size=1)
@@ -83,35 +84,42 @@ class TrafficFeatures:
                 ls.currentLaneId = current_lanelet_id
                 break
 
+        next_lanelet_msg = NextLanelet()
         lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)
         min_distance_to_outer = np.inf
 
         if lane is None:
+            next_lanelet_msg.distance = np.inf
+            next_lanelet_msg.isInIntersection = False
             distance = 0
         else:
+            distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
+            idx = np.argmin(distances_to_center_vertices)
+            next_lanelet_msg.distance = self.lanelet_lengths[current_lanelet_id][-1] - \
+                                        self.lanelet_lengths[current_lanelet_id][idx]
             if current_lanelet_id in self.intersection_lanelet_ids or current_lanelet_id in self.lanelet_ids_roundabout_inside:
                 distance = np.inf
+                next_lanelet_msg.isInIntersection = False
             elif self.lanelet_ids_roundabout_incoming is not None:
                 distance = np.inf
                 if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
                     point_with_min_distance = None
                     for inner_lanelet_id in self.lanelet_ids_roundabout_inside_outer_circle:
-                        inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)               
-                        distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)                
+                        inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
+                        distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)
                         _min = np.min(distances_to_right_vertices)
                         if _min < min_distance_to_outer:
                             min_distance_to_outer = _min
-                            point_with_min_distance = inner_lane.right_vertices[np.argmin(distances_to_right_vertices)]                
+                            point_with_min_distance = inner_lane.right_vertices[np.argmin(distances_to_right_vertices)]
             else:
-                distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
-                idx = np.argmin(distances_to_center_vertices)
+                next_lanelet_msg.isInIntersection = True
                 distance = self.lanelet_lengths[current_lanelet_id][-1] - self.lanelet_lengths[current_lanelet_id][idx]
                 if lane.adj_left_same_direction:
                     ls.isMultiLane = True
                     ls.leftLaneId = lane.adj_left
                 if lane.adj_right_same_direction:
                     ls.isMultiLane = True
-                    ls.rightLaneId = lane.adj_right       
+                    ls.rightLaneId = lane.adj_right
         if min_distance_to_outer < 20:
             # rospy.loginfo("On Lanelet to RoundAbout")
             roundabout_msg = NextLanelet()
@@ -139,7 +147,7 @@ class TrafficFeatures:
 
 
 def main():
-    rospy.init_node('traffic_features', anonymous=True)
+    rospy.init_node('road_features', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
     tf = TrafficFeatures(role_name)
     tf.run()

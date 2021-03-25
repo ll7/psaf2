@@ -1,6 +1,6 @@
 ## About
 
-Uses the semantic segmentation and rgb cameras to detect street objects (street signs, traffic lights) in the current view (`detect_street_objects()`).
+Uses the semantic segmentation (flat) and rgb cameras to detect street objects (street signs, traffic lights) in the current view (`detect_street_objects()`).
 Relevant objects are identified by their color in the semantic segmentation camera, then the resulting pixels mapped to and extracted from the rgb image (`get_color_block()`).
 Street signs are then processed by the tesseract OCR library (multiple times, for each defined tesseract configuration), the resulting strings then trimmed, verified and published (`get_ocr_text()`).
 Traffic lights are analyzed by the specific dominant color within the extracted image, i.e. if there is more green than yellow and red (for example), by a defined threshold limit, the result green will be published (`detect_traffic_light_color()`).
@@ -11,12 +11,17 @@ For further performance improvement, relevant areas to analyze are defined via o
 Subscribes to
 ```
 /carla/{}/camera/rgb/front/image_color
-/carla/{}/camera/semantic_segmentation/front/image_segmentation
+/carla/{}/camera/semantic_segmentation/front_flat/image_segmentation
 ```
 
 Publishes recognized speed limit as Float64 to
 ```
 /psaf/{}/speed_limit
+```
+
+Publishes recognized traffic light as String to
+```
+/psaf/{}/traffic_light
 ```
 
 Publishes the overall recognition information object as an PerceptionInfo instance to

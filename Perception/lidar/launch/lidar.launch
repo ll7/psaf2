@@ -1,0 +1,8 @@
+<!-- -->
+<launch>
+
+  <node pkg="lidar" type="lidar.py" name="lidar" output="screen">
+  </node>
+
+</launch>
+

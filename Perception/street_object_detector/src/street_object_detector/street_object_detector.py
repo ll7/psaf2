@@ -13,7 +13,7 @@ from traceback import print_exc
 class StreetObjectDetector:
     """
     Class to use /carla/<role_name>/semantic_segmentation_front/image and /carla/<role_name>/rgb_front/image topic
-    to detect street signs and traffic lights and publish them to /psaf/<role_name>/perception_info and /psaf/<role_name>/speed_limit topics.
+    to detect street signs and traffic lights and publish them to /psaf/<role_name>/perception_info, /psaf/<role_name>/speed_limit and /psaf/<role_name>/traffic_light topics.
     """
 
     def __init__(self, role_name):
@@ -24,7 +24,7 @@ class StreetObjectDetector:
         self.semantic_segmentation_img = None
         
         # an object must be at least of this size in the semantic segmentation camera before it will be passed to further recognition tasks
-        self.minimal_object_size_for_detection = 7
+        self.minimal_object_size_for_detection = 15
         
         # OCR settings
         self.ocr_tesseract_configs = [ "--psm 4 --oem 1", "--psm 6 --oem 1", "--psm 9 --oem 1", "--psm 11 --oem 1", "--psm 13 --oem 1" ]
@@ -47,7 +47,7 @@ class StreetObjectDetector:
         self.speed_limit_values = [ '30', '60', '90' ]
         
         # minimum count of pixels of the dominant color for traffic light color detection
-        self.traffic_light_pixel_count_threshold = 5
+        self.traffic_light_pixel_count_threshold = 8
 
         # COLOR SETTINGS (B, R, G) (have to be numpy arrays!)
         self.semantic_street_signs_color = np.array([ 0, 220, 220 ], np.uint8)
@@ -57,7 +57,7 @@ class StreetObjectDetector:
         # There are dead areas in the camera's field of view where street signs and traffic lights can be ignored
         # OFFSET: [top, right, bottom, left]
         self.semantic_street_signs_offset = [0, 0, 0, 0.6]
-        self.semantic_traffic_light_offset = [0, 0.4, 0.85, 0.4]
+        self.semantic_traffic_light_offset = [0, 0, 0.5, 0.4]
         
         # array of offsets
         self.semantic_segment_search_offsets = {
@@ -73,7 +73,7 @@ class StreetObjectDetector:
 
         # SUBSCRIBERS
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
-            "/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semantic_segmentation_image_updated)
+            "/carla/{}/camera/semantic_segmentation/front_flat/image_segmentation".format(role_name), Image, self.semantic_segmentation_image_updated)
 
         self._rgb_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/camera/rgb/front/image_color".format(role_name), Image, self.rgb_image_updated)
@@ -81,6 +81,9 @@ class StreetObjectDetector:
         # PUBLISHERS
         self.speed_limit_publisher = rospy.Publisher(
             "/psaf/{}/speed_limit".format(self.role_name), Float64, queue_size=1, latch=True)
+            
+        self.traffic_light_publisher = rospy.Publisher(
+            "/psaf/{}/traffic_light".format(self.role_name), String, queue_size=1, latch=True)
 
         self.perception_info_publisher = rospy.Publisher(
             "/psaf/{}/perception_info".format(self.role_name), PerceptionInfo, queue_size=1, latch=True)
@@ -314,6 +317,9 @@ class StreetObjectDetector:
         
         street_object_image = img_rgb[ min_y:max_y, min_x:max_x, :]
         
+        if(street_object_image.size <= 0):
+        		return (None, img_sem)
+		
         x_rel = round(min_x / rgb_width, 2)
         y_rel = round(min_y / rgb_height, 2)
         
@@ -346,14 +352,14 @@ class StreetObjectDetector:
         red_mask_full = red_mask_orange + red_mask_violet 
 
         # green
-        lower_green = np.array([35, 85, 110], dtype="uint8")
-        upper_green = np.array([70, 255, 255], dtype="uint8")
+        lower_green = np.array([40, 85, 110], dtype="uint8")
+        upper_green = np.array([91, 255, 255], dtype="uint8")
         green_mask = cv2.inRange(frame_hsv, lower_green, upper_green)
 
 
         # yellow
-        lower_yellow = np.array([20, 50, 50], dtype="uint8")
-        upper_yellow = np.array([30, 255, 255], dtype="uint8")
+        lower_yellow = np.array([22, 93, 0], dtype="uint8")
+        upper_yellow = np.array([45, 255, 255], dtype="uint8")
         yellow_mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow)
         
         red_count = cv2.countNonZero(red_mask_full)
@@ -382,6 +388,7 @@ class StreetObjectDetector:
 
         if not type(detections) is PerceptionInfo or not detections or not detections.objects:
             self.perception_info_publisher.publish(PerceptionInfo())
+            self.traffic_light_publisher.publish('')
             return None
             
 
@@ -393,6 +400,18 @@ class StreetObjectDetector:
                 if detections.objects[i] == "street_signs":
                     speed_limit = float(detections.values[i])
                     self.speed_limit_publisher.publish(speed_limit)
+            # red dominates over yellow and green
+            if ('red' in detections.values):
+            	self.traffic_light_publisher.publish('red')
+            # yellow dominates over green
+            elif ('yellow' in detections.values):
+            	self.traffic_light_publisher.publish('yellow')
+            elif ('green' in detections.values):
+            	self.traffic_light_publisher.publish('green')
+            else:
+           		self.traffic_light_publisher.publish('')
+        else:
+            self.traffic_light_publisher.publish('')
 
 
     def run(self):
