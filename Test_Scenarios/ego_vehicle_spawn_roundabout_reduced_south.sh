@@ -6,7 +6,7 @@ gnome-terminal --execute bash -c "rviz -d '/home/brandlju/Desktop/local_global_p
 sleep 9s
 gnome-terminal --execute bash -c "rosservice call update_local_path '{}'"
 sleep 2s
-gnome-terminal --execute bash -c "rostopic pub /carla/ego_vehicle/target_speed std_msgs/Float64 30.0"
+gnome-terminal --execute bash -c "rostopic pub /psaf/ego_vehicle/target_speed std_msgs/Float64 30.0"
 gnome-terminal --execute bash -c "rqt_console"
 
 

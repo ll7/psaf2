@@ -2,7 +2,7 @@ import py_trees
 import numpy as np
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
-from custom_carla_msgs.srv import UpdateLocalPath
+from custom_carla_msgs.srv import UpdateLocalPath, TrafficOnLanelet
 
 import rospy
 import math
@@ -12,7 +12,7 @@ class Approach(py_trees.behaviour.Behaviour):
         super(Approach, self).__init__(name)
 
     def setup(self, timeout):
-        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         self.Successs = False
@@ -22,6 +22,7 @@ class Approach(py_trees.behaviour.Behaviour):
         # self.update_local_path(approach_roundabout=True)
         self.update_local_path(approach_roundabout=True)
         self.blackboard = py_trees.blackboard.Blackboard()
+        rospy.loginfo("Starting to approach Roundabout")
 
     def update(self):        
         
@@ -37,10 +38,12 @@ class Approach(py_trees.behaviour.Behaviour):
                 v = 30
                 # rospy.loginfo("changed target_speed for roundabout")
                 self.target_speed_pub.publish(v)
+            if dist < 15:
+                self.target_speed_pub.publish(15)
 
         self.speed =  np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
-        if dist < 5.0:
+        if dist < 7:
             self.target_speed_pub.publish(0.0)
             return py_trees.common.Status.SUCCESS
         else:
@@ -54,10 +57,9 @@ class Wait(py_trees.behaviour.Behaviour):
         super(Wait, self).__init__(name)
 
     def setup(self, timeout):
-        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
-        #service traffic in roundabout
-        # rospy.wait_for_service('look_for_traffic_in_roundabout')
-        # self.update_local_path = rospy.ServiceProxy("look_for_traffic_in_roundabout", UpdateLocalPath)
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
+        rospy.wait_for_service('check_lanelet_free')
+        self.lanelet_free = rospy.ServiceProxy("check_lanelet_free", TrafficOnLanelet)
 
         self.Successs = True
         return True
@@ -67,18 +69,18 @@ class Wait(py_trees.behaviour.Behaviour):
 
     def update(self):
         rospy.loginfo("update in wait")
-        self.target_speed_pub.publish(30)
+        # self.target_speed_pub.publish(30)        
+        first_lanelet_roundabout = self.blackboard.get("/psaf/ego_vehicle/first_lanelet_roundabout")
+        rospy.loginfo(f"id first_lanelet_roundabout = {first_lanelet_roundabout}")
+        if first_lanelet_roundabout is not None:
+            success_lanelet_free = self.lanelet_free(isRoundabout=True, lanelet_id=first_lanelet_roundabout.data)
+            if success_lanelet_free:
+                self.target_speed_pub.publish(30)
+                rospy.loginfo("success")
+                return py_trees.common.Status.SUCCESS
+            else:
+                return py_trees.common.Status.RUNNING
         
-        # if self.lane_is_free:
-        #     self.target_speed_pub.publish(30)
-        #     return py_trees.common.Status.SUCCESS
-        # else:
-        #     return py_trees.common.Status.RUNNING
-
-        if self.Successs:
-            return py_trees.common.Status.SUCCESS
-        else:
-            return py_trees.common.Status.RUNNING
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
@@ -88,15 +90,12 @@ class Enter(py_trees.behaviour.Behaviour):
         super(Enter, self).__init__(name)
 
     def setup(self, timeout):
-        self.target_speed_pub = rospy.Publisher("/carla/ego_vehicle/target_speed", Float64, queue_size=1)
-        rospy.wait_for_service('update_local_path')
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         self.Successs = False
-        self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         return True
 
     def initialise(self):
         rospy.loginfo("Entering Enter")
-        #self.update_local_path(leave_intersection=True)
         self.target_speed_pub.publish(30.0)
         self.blackboard = py_trees.blackboard.Blackboard()
 

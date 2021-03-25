@@ -5,7 +5,7 @@ import json
 
 from commonroad.common.file_reader import CommonRoadFileReader
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Int32
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped, Point
 from custom_carla_msgs.msg import GlobalPathLanelets, NextLanelet
@@ -38,6 +38,7 @@ class LocalPlanner:
 
         # add ros publishers
         self.local_path_pub = rospy.Publisher(f"/psaf/{self.role_name}/local_path", Path, queue_size=1, latch=True)
+        self.first_lanelet_roundabout = rospy.Publisher(f"/psaf/{self.role_name}/first_lanelet_roundabout", Int32 , queue_size=1, latch=True)
 
     def map_received(self, msg):
         self.scenario, _ = CommonRoadFileReader(msg.data).open()
@@ -187,7 +188,9 @@ class LocalPlanner:
                                     else:
                                         path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two + 2)]
                                         path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one + 2:])
-                                
+
+
+                                    self.first_lanelet_roundabout.publish(closest_lanelet_on_outer_circle.lanelet_id)
                                     #solange successor suchen, bis abstand zu outgoing < 4
                                     #außen im Kreisverkehr bis Ausgang fahren
                                     while closest_lanelet_on_outer_circle is not None:
@@ -234,7 +237,7 @@ class LocalPlanner:
                             self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
                     except IndexError:
                         rospy.loginfo("Local Planner Intersection Approaching: No successor found")
-                        return
+                        return True
                     if next_lanelet.predecessor[0] == lane_id:  # no lane change
                         rospy.loginfo("Keep Lane")
                         path.extend(current_lanelet.center_vertices[idx_nearest_point:])

@@ -4,7 +4,7 @@
 import py_trees
 import py_trees_ros
 
-from std_msgs.msg import Float64, String, Bool
+from std_msgs.msg import Float64, String, Bool, Int32
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
 
@@ -23,11 +23,13 @@ def create_node(role_name):
             {'name':f"/psaf/{role_name}/lane_status", 'msg':LaneStatus ,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/stopline_distance", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/distance_next_roundabout", 'msg':NextLanelet, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
-            {'name':f"/psaf/{role_name}/distance_exit_roundabout", 'msg':Point, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER}
+            {'name':f"/psaf/{role_name}/distance_exit_roundabout", 'msg':Point, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/obstacle_on_left_lane", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/psaf/{role_name}/obstacle_on_right_lane", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
-            {'name': f"/initialpose", 'msg': PoseWithCovarianceStamped,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
-            {'name': f"/carla/{role_name}/initialpose", 'msg': PoseWithCovarianceStamped, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/initialpose", 'msg': PoseWithCovarianceStamped,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/carla/{role_name}/initialpose", 'msg': PoseWithCovarianceStamped, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/psaf/{role_name}/first_lanelet_roundabout", 'msg':Int32, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER}
+            
          ]
     topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
     for topic in topics:

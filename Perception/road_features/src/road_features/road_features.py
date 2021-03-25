@@ -27,7 +27,7 @@ class TrafficFeatures:
         self.lanelet_ids_roundabout_inside_outer_circle = None
 
         self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/next_lanelet", NextLanelet, queue_size=1)
-        self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
+        # self.distance_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_intersection", Float64, queue_size=1)
         self.roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", NextLanelet, queue_size=1)
         self.lane_status_pub = rospy.Publisher(f"/psaf/{self.role_name}/lane_status", LaneStatus, queue_size=1)
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
@@ -101,8 +101,10 @@ class TrafficFeatures:
                 distance = np.inf
                 next_lanelet_msg.isInIntersection = False
             elif self.lanelet_ids_roundabout_incoming is not None:
+                # next_lanelet_msg.isRoundabout = True
                 distance = np.inf
                 if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
+                    # rospy.loginfo("current_lanelet_id is in incoming_roundabout_lanes")
                     point_with_min_distance = None
                     for inner_lanelet_id in self.lanelet_ids_roundabout_inside_outer_circle:
                         inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
@@ -125,11 +127,12 @@ class TrafficFeatures:
             roundabout_msg = NextLanelet()
             roundabout_msg.isRoundabout = True
             roundabout_msg.entry_point = Point(point_with_min_distance[0], point_with_min_distance[1], 0)
+            # rospy.loginfo("pub roundaboutmsg ")
             self.roundabout_pub.publish(roundabout_msg)
-            self.distance_pub.publish(np.inf)
+            # self.distance_pub.publish(np.inf)
         else:
-            self.distance_pub.publish(distance)
-        self.lane_status_pub.publish(ls)
+            self.distance_pub.publish(next_lanelet_msg)
+            self.lane_status_pub.publish(ls)
 
     def run(self):
         """

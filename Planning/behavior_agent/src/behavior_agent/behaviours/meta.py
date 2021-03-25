@@ -28,9 +28,12 @@ class Start(py_trees.behaviour.Behaviour):
         if success_global_path:
             bb_dist = self.blackboard.get("/psaf/ego_vehicle/next_lanelet")
             if bb_dist is not None:
-                is_next_intersection = bb_dist.isInIntersection
+                is_next_intersection = bb_dist.isInIntersection                
+                is_next_roundabout = bb_dist.isRoundabout
                 if is_next_intersection:
                     success_local_path = self.update_local_path()
+                elif is_next_roundabout:
+                    success_local_path = self.update_local_path(approach_roundabout=True)
                 else:
                     success_local_path = self.update_local_path(leave_intersection=True)
                 if success_local_path:

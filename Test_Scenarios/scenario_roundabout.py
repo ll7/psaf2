@@ -13,6 +13,7 @@ import os
 import sys
 import time
 import csv
+import math
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -44,12 +45,6 @@ def main():
         default=2000,
         type=int,
         help='TCP port to listen to (default: 2000)')
-    argparser.add_argument(
-        '-a', '--autopilot-on',
-        metavar='A',
-        default=1,
-        type=int,
-        help='autopilot on (1) off(0) (default: 1)')
     argparser.add_argument(
         '-n', '--number-of-vehicles',
         metavar='N',
@@ -109,7 +104,7 @@ def main():
     all_id = []
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
-    synchronous_master = True
+    synchronous_master = False
     random.seed(args.seed if args.seed is not None else int(time.time()))
 
     try:
@@ -149,9 +144,9 @@ def main():
         spawn_points = world.get_map().get_spawn_points()
         number_of_spawn_points = len(spawn_points)
 
-        if args.number_of_vehicles < number_of_spawn_points:
-            random.shuffle(spawn_points)
-        elif args.number_of_vehicles > number_of_spawn_points:
+        #if args.number_of_vehicles < number_of_spawn_points:
+            #random.shuffle(spawn_points)
+        if args.number_of_vehicles > number_of_spawn_points:
             msg = 'requested %d vehicles, but could only find %d spawn points'
             logging.warning(msg, args.number_of_vehicles, number_of_spawn_points)
             args.number_of_vehicles = number_of_spawn_points
@@ -163,139 +158,71 @@ def main():
         FutureActor = carla.command.FutureActor  
         
         # --------------
-        # Write Spawn_points in csv
-        # --------------
-        #print('spawn_points %d .' % (len(spawn_points)))
-        #with open('scenario_1.csv', 'w', newline='') as scenario_1_file:
-        #    writer = csv.writer(scenario_1_file)
-        #    writer.writerow(["x", "y", "z", "pitch", "yaw", "roll"])
-        #    for transform in spawn_points:
-        #        writer.writerow([transform.location.x, transform.location.y, transform.location.z, transform.rotation.pitch, transform.rotation.yaw, transform.rotation.roll])
-        #        #writer.writerow([transform[0], transform[1], transform[2], transform[3]])     
-
-        # --------------
         # Spawn vehicles
         # --------------
         batch = []
         blueprints_spawn = []
-        transforms_spawn = []
-        for n, transform in enumerate(spawn_points):
-            if n >= args.number_of_vehicles:
-                break
-            blueprint = random.choice(blueprints)
-            if blueprint.has_attribute('color'):
-                color = random.choice(blueprint.get_attribute('color').recommended_values)
-                blueprint.set_attribute('color', color)
-            if blueprint.has_attribute('driver_id'):
-                driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
-                blueprint.set_attribute('driver_id', driver_id)
-            blueprint.set_attribute('role_name', 'autopilot')
+        transforms_spawn = []        
+        transform = spawn_points.__getitem__(170)
+        transform.location.x = -1
+        transform.location.y = 23.56
+        print(transform.location.x)
+        print(transform.location.y)
+        blueprint = blueprints.__getitem__(1)
+        if blueprint.has_attribute('color'):
+            color = random.choice(blueprint.get_attribute('color').recommended_values)
+            blueprint.set_attribute('color', color)
+        if blueprint.has_attribute('driver_id'):
+            driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
+            blueprint.set_attribute('driver_id', driver_id)
+        blueprint.set_attribute('role_name', 'autopilot')
+        light_state = vls.NONE
+        if args.car_lights_on:
+            light_state = vls.Position | vls.LowBeam | vls.LowBeam
 
-            # prepare the light state of the cars to spawn
-            light_state = vls.NONE
-            if args.car_lights_on:
-                light_state = vls.Position | vls.LowBeam | vls.LowBeam
+        # spawn the cars and set their autopilot and light state all together
+        blueprints_spawn.append(blueprint)
+        transforms_spawn.append(transform)
+        batch.append(SpawnActor(blueprint, transform)
+            # .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
+            .then(SetVehicleLightState(FutureActor, light_state)))
 
-            # spawn the cars and set their autopilot and light state all together
-            blueprints_spawn.append(blueprint)
-            transforms_spawn.append(transform)
-            #if args.autopilot == 0:
-            #    batch.append(SpawnActor(blueprint, transform)
-            #        #.then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
-            #        .then(SetVehicleLightState(FutureActor, light_state)))
-            #else:
-            batch.append(SpawnActor(blueprint, transform)
-                .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
-                .then(SetVehicleLightState(FutureActor, light_state)))    
-            
-
+        # transform = spawn_points.__getitem__(170)
+        # transform.location.x = transform.location.x -55
+        # print(transform.location.x)
+        # print(transform.location.y)
+        # blueprint = blueprints.__getitem__(1)
+        # if blueprint.has_attribute('color'):
+        #     color = random.choice(blueprint.get_attribute('color').recommended_values)
+        #     blueprint.set_attribute('color', color)
+        # if blueprint.has_attribute('driver_id'):
+        #     driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
+        #     blueprint.set_attribute('driver_id', driver_id)
+        # blueprint.set_attribute('role_name', 'autopilot')
+        # light_state = vls.NONE
+        # if args.car_lights_on:
+        #     light_state = vls.Position | vls.LowBeam | vls.LowBeam
+        #
+        # # spawn the cars and set their autopilot and light state all together
+        # blueprints_spawn.append(blueprint)
+        # transforms_spawn.append(transform)
+        # batch.append(SpawnActor(blueprint, transform)
+        #     .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
+        #     .then(SetVehicleLightState(FutureActor, light_state)))
+        
+        
+        
+        
         for response in client.apply_batch_sync(batch, synchronous_master):
             if response.error:
                 logging.error(response.error)
             else:
                 vehicles_list.append(response.actor_id)
 
-        # -------------
-        # Spawn Walkers
-        # -------------
-        # some settings
-        percentagePedestriansRunning = 0.0      # how many pedestrians will run
-        percentagePedestriansCrossing = 0.0     # how many pedestrians will walk through the road
-        # 1. take all the random locations to spawn
-        spawn_points = []
-        for i in range(args.number_of_walkers):
-            spawn_point = carla.Transform()
-            loc = world.get_random_location_from_navigation()
-            if (loc != None):
-                spawn_point.location = loc
-                spawn_points.append(spawn_point)
-        # 2. we spawn the walker object
-        batch = []
-        walker_speed = []
-        for spawn_point in spawn_points:
-            walker_bp = random.choice(blueprintsWalkers)
-            # set as not invincible
-            if walker_bp.has_attribute('is_invincible'):
-                walker_bp.set_attribute('is_invincible', 'false')
-            # set the max speed
-            if walker_bp.has_attribute('speed'):
-                if (random.random() > percentagePedestriansRunning):
-                    # walking
-                    walker_speed.append(walker_bp.get_attribute('speed').recommended_values[1])
-                else:
-                    # running
-                    walker_speed.append(walker_bp.get_attribute('speed').recommended_values[2])
-            else:
-                print("Walker has no speed")
-                walker_speed.append(0.0)
-            batch.append(SpawnActor(walker_bp, spawn_point))
-        results = client.apply_batch_sync(batch, True)
-        walker_speed2 = []
-        for i in range(len(results)):
-            if results[i].error:
-                logging.error(results[i].error)
-            else:
-                walkers_list.append({"id": results[i].actor_id})
-                walker_speed2.append(walker_speed[i])
-        walker_speed = walker_speed2
-        # 3. we spawn the walker controller
-        batch = []
-        walker_controller_bp = world.get_blueprint_library().find('controller.ai.walker')
-        for i in range(len(walkers_list)):
-            batch.append(SpawnActor(walker_controller_bp, carla.Transform(), walkers_list[i]["id"]))
-        results = client.apply_batch_sync(batch, True)
-        for i in range(len(results)):
-            if results[i].error:
-                logging.error(results[i].error)
-            else:
-                walkers_list[i]["con"] = results[i].actor_id
-        # 4. we put altogether the walkers and controllers id to get the objects from their id
-        for i in range(len(walkers_list)):
-            all_id.append(walkers_list[i]["con"])
-            all_id.append(walkers_list[i]["id"])
-        all_actors = world.get_actors(all_id)
-
-        # wait for a tick to ensure client receives the last transform of the walkers we have just created
-        if not args.sync or not synchronous_master:
-            world.wait_for_tick()
-        else:
-            world.tick()
-
-        # 5. initialize each controller and set target to walk to (list is [controler, actor, controller, actor ...])
-        # set how many pedestrians can cross the road
-        world.set_pedestrians_cross_factor(percentagePedestriansCrossing)
-        for i in range(0, len(all_id), 2):
-            # start walker
-            all_actors[i].start()
-            # set walk to random point
-            all_actors[i].go_to_location(world.get_random_location_from_navigation())
-            # max speed
-            all_actors[i].set_max_speed(float(walker_speed[int(i/2)]))
-
         print('spawned %d vehicles and %d walkers, press Ctrl+C to exit.' % (len(vehicles_list), len(walkers_list)))
 
         # example of how to use parameters
-        traffic_manager.global_percentage_speed_difference(60.0)
+        traffic_manager.global_percentage_speed_difference(30.0)
 
         while True:
             if args.sync and synchronous_master:
