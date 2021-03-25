@@ -185,10 +185,11 @@ class Lidar(object):
         for p in transformed_lidar_poses:
             dx = [p.pose.position.x - x for x in lanelet.center_vertices[:,0]]
             dy = [p.pose.position.y - y for y in lanelet.center_vertices[:,1]]            
-            d = np.hypot(dx,dy)   
-            dist = min(d)           
-            if dist < 2:               
-                points.append(p)
+            d = np.hypot(dx,dy)
+            if d.any():   
+                dist = min(d)           
+                if dist < 2:               
+                    points.append(p)
         return points
 
     def get_right_and_left_lanelet(self):
@@ -231,7 +232,7 @@ class Lidar(object):
                 else:
                     #successor
                     filtered_poses = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(lanelet.successor[0]), transformed_lidar_poses)
-                    rospy.loginfo(f"got {len(filtered_poses)} filter points from successor")  
+                    rospy.loginfo(f"got {len(filtered_poses)} filter points from successor ({lanelet.successor[0]})")  
                     if len(filtered_poses) > 0:                 
                         dist = self.calc_dist(filtered_poses)           
                         if dist > 0 and dist < self.max_dist_lidar: 
@@ -243,7 +244,7 @@ class Lidar(object):
                     else:
                         #predecessor
                         filtered_poses = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0]), transformed_lidar_poses)
-                        rospy.loginfo(f"got {len(filtered_poses)} filter points from predecessor") 
+                        rospy.loginfo(f"got {len(filtered_poses)} filter points from predecessor ({lanelet.predecessor[0]})") 
                         if len(filtered_poses) > 0:                 
                             dist = self.calc_dist(filtered_poses)           
                             if dist > 0 and dist < self.max_dist_lidar:  
