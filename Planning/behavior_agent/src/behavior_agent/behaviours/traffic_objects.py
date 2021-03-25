@@ -1,5 +1,5 @@
 import py_trees
-
+import rospy
 
 class NotSlowedByCarInFront(py_trees.behaviour.Behaviour):
     def __init__(self, name):
@@ -8,8 +8,6 @@ class NotSlowedByCarInFront(py_trees.behaviour.Behaviour):
     def setup(self, timeout):
         self.Successs = False
         return True
-
-
 
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
@@ -30,23 +28,28 @@ class NotSlowedByCarInFront(py_trees.behaviour.Behaviour):
 class WaitLeftLaneFree(py_trees.behaviour.Behaviour):
     def __init__(self, name):
         super(WaitLeftLaneFree, self).__init__(name)
+        
 
     def setup(self, timeout):
-        self.Successs = False
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
+    def initialise(self):        
+        self.timer = rospy.get_time()
 
 
-    def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
-
-
-    def update(self):
-        if self.Successs:
+    def update(self):        
+        self.car_left = self.blackboard.get("/psaf/ego_vehicle/obstacle_on_left_lane")
+        if self.car_left is None:
             return py_trees.common.Status.SUCCESS
+        elif  self.car_left.data is None or self.car_left.data > 20 :
+            return py_trees.common.Status.FAILURE
+        elif (self.timer + 2) < rospy.get_time():
+            return py_trees.common.Status.RUNNING 
         else:
-            return py_trees.common.Status.RUNNING
-        
+            return py_trees.common.Status.FAILURE
+
+
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
 
@@ -55,20 +58,22 @@ class WaitRightLaneFree(py_trees.behaviour.Behaviour):
         super(WaitRightLaneFree, self).__init__(name)
 
     def setup(self, timeout):
-        self.Successs = False
+        self.blackboard = py_trees.blackboard.Blackboard()
         return True
 
-
-
     def initialise(self):
-        self.blackboard = py_trees.blackboard.Blackboard()
-
+        self.timer = rospy.get_time()      
 
     def update(self):
-        if self.Successs:
+        self.car_right = self.blackboard.get("/psaf/ego_vehicle/obstacle_on_right_lane")
+        if self.car_right is None:
             return py_trees.common.Status.SUCCESS
+        elif self.car_right.data is None or self.car_right.data > 20:
+            return py_trees.common.Status.FAILURE
+        elif (self.timer + 2) < rospy.get_time():
+            return py_trees.common.Status.RUNNING 
         else:
-            return py_trees.common.Status.RUNNING
+            return py_trees.common.Status.FAILURE
         
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))

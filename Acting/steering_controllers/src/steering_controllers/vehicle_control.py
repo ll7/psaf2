@@ -14,7 +14,7 @@ from steering_controllers.stanley_control import StanleyLateralController
 
 
 
-class VehicleController(object): 
+class VehicleController(object):
     """
     Combination of all Controllers that perform lateral and longitudinal control on the ego vehicle.
     Currently PID controllers are used for distance and speed control
@@ -36,7 +36,7 @@ class VehicleController(object):
         args_dist = {'K_P': 0.2, 'K_D': 0.0, 'K_I': 0.01}
         # Stanley control parameters
         args_lateral = {'k': 2.5, 'Kp': 1.0, 'L': 2.9, 'max_steer':30.0, 'min_speed':0.1}
-        
+
         self._lon_controller = PIDLongitudinalController(**args_longitudinal)
         self._lat_controller = StanleyLateralController(**args_lateral)
         self._dist_controller = PIDLongitudinalController(**args_dist)
@@ -71,12 +71,12 @@ class VehicleController(object):
         # compute safety distance
         min_dist = 4
         if self._current_speed > min_dist*2:
-            self._target_distance = self._current_speed * .55 
+            self._target_distance = self._current_speed * .55
         else:
             self._target_distance = min_dist
 
         # perform pid control step with distance and speed controllers
-        lon = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)        
+        lon = self._lon_controller.run_step(self._target_speed, self._current_speed, dt)
         dist = -self._dist_controller.run_step(self._target_distance, self._current_distance, dt)
 
         # use whichever controller yields the lowest throttle
@@ -109,7 +109,7 @@ class VehicleController(object):
     def odometry_updated(self, odo):
         """Odometry Update Callback
         """
-        # calculate current speed (km/h) from twist 
+        # calculate current speed (km/h) from twist
         self._current_speed = math.sqrt(odo.twist.twist.linear.x ** 2 +
                                         odo.twist.twist.linear.y ** 2 +
                                         odo.twist.twist.linear.z ** 2) * 3.6
@@ -141,7 +141,7 @@ class VehicleController(object):
         :return:
         """
         r = rospy.Rate(10)
-        # periodically run lateral and longitudinal control 
+        # periodically run lateral and longitudinal control
         while not rospy.is_shutdown():
             control = self.run_step()
             if control:

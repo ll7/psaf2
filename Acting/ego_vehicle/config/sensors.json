@@ -95,12 +95,12 @@
         {
             "type": "sensor.lidar.ray_cast",
             "id": "lidar1",
-            "x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
+            "x": 0.0, "y": 0.0, "z": 0.5, "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
             "range": 50,
             "channels": 32,
-            "points_per_second": 320000,
-            "upper_fov": 2.0,
-            "lower_fov": -26.8,
+            "points_per_second": 20000,
+            "upper_fov": 1.0,
+            "lower_fov": -0.5,
             "rotation_frequency": 20,
             "sensor_tick": 0.05,
             "noise_stddev": 0.0
