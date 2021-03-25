@@ -9,6 +9,8 @@ from cv_bridge import CvBridge, CvBridgeError
 
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
+from carla_msgs.msg import CarlaWorldInfo
+from custom_carla_msgs.msg import TrafficLight
 
 
 class StreetObjectDetector:
@@ -24,10 +26,20 @@ class StreetObjectDetector:
         self._rgb_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/camera/rgb/front/image_color".format(role_name), Image, self.rgb_image_updated)
 
+        self.depth_img = None
+        self._rgb_front_image_subscriber = rospy.Subscriber(
+            "/carla/{}/camera/depth/front/image_depth".format(role_name), Image, self.depth_image_updated)
+
         self.traffic_light_publisher = rospy.Publisher(
-            "/psaf/{}/traffic_light".format(self.role_name), String, queue_size=1, latch=True)
+            "/psaf/{}/traffic_light".format(self.role_name), TrafficLight, queue_size=1, latch=True)
 
         self.roadmark_publisher = rospy.Publisher("/psaf/{}/traffic_light_img".format(role_name), Image, queue_size=1)
+
+        self.map_number = None
+        self.world_info = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.world_info_received)
+
+    def world_info_received(self, msg):
+        self.map_number = int(msg.map_name[-1])
 
     def rgb_image_updated(self, data):
         """
@@ -53,25 +65,52 @@ class StreetObjectDetector:
         except CvBridgeError as e:
             print_exc()
 
+    def depth_image_updated(self, data):
+        """
+        Update callback for the RGB camera
+
+        :param data: the data received from the topic
+        :return:
+        """
+        try:
+            self.depth_img = self.bridge.imgmsg_to_cv2(data, "32FC1")
+        except CvBridgeError as e:
+            print_exc()
+
     def detect_traffic_lights(self):
         sem_img = copy.deepcopy(self.semantic_segmentation_img)
         rgb_img = copy.deepcopy(self.rgb_img)
+        depth_img = copy.deepcopy(self.depth_img)
 
         # create a triangle shaped mask that cuts out the traffic lights in the rgb image
         # with help of segmented segmentation
         height, width, depth = sem_img.shape
         mask = np.zeros((height, width), np.uint8)
         mask[np.where((sem_img == [30, 170, 250]).all(axis=2))] = 1
-        pts = np.array([[75, 300], [175, 0], [200, 0], [325, 300]])
-        triangle_mask = np.zeros((height, width), np.uint8)
-        cv2.drawContours(triangle_mask, [pts], -1, 1, -1, cv2.LINE_AA)
-        mask = cv2.bitwise_and(mask, mask, mask=triangle_mask)
-        mask_resized = cv2.resize(mask, (800, 600))
+        if self.map_number == 3 or self.map_number == 5:  # on this maps traffic light style is american
+            pts = np.array([[75, 300], [175, 0], [200, 0], [325, 300]])
+            triangle_mask = np.zeros((height, width), np.uint8)
+            cv2.drawContours(triangle_mask, [pts], -1, 1, -1, cv2.LINE_AA)
+            mask = cv2.bitwise_and(mask, mask, mask=triangle_mask)
 
-        traffic_lights_image = cv2.bitwise_and(rgb_img, rgb_img, mask=mask_resized)
-        color = self.detect_traffic_light_color(traffic_lights_image, 10)
+        try: # error that can occur at startup
+            depth_img_traffic_lights = cv2.bitwise_and(depth_img, depth_img, mask=mask)
+            non_zero_entries = depth_img_traffic_lights[np.nonzero(depth_img_traffic_lights)]
+            if non_zero_entries.size != 0:
+                distance_closest_traffic_light = np.min(non_zero_entries)
+            else:
+                distance_closest_traffic_light = np.inf
 
-        self.traffic_light_publisher.publish(color)
+            mask_resized = cv2.resize(mask, (800, 600))
+            traffic_lights_image = cv2.bitwise_and(rgb_img, rgb_img, mask=mask_resized)
+            color = self.detect_traffic_light_color(traffic_lights_image, 10)
+
+            traffic_light_msg = TrafficLight()
+            traffic_light_msg.color = color
+            traffic_light_msg.distance = distance_closest_traffic_light
+            self.traffic_light_publisher.publish(traffic_light_msg)
+        except cv2.error:
+            return
 
         try:
             im = self.bridge.cv2_to_imgmsg(traffic_lights_image)
@@ -143,7 +182,8 @@ class StreetObjectDetector:
             except rospy.ROSInterruptException:
                 pass
 
-def main():
+
+if __name__ == "__main__":
     rospy.init_node('street_object_detector', anonymous=True)
     role_name = rospy.get_param("~role_name", "ego_vehicle")
 

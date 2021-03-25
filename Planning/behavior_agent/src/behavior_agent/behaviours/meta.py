@@ -21,18 +21,19 @@ class Start(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
+        self.target_speed_pub.publish(0.0)
         return True
 
     def update(self):
-        success_global_path = self.update_global_path()
+        success_global_path = self.update_global_path().Success
         if success_global_path:
             bb_dist = self.blackboard.get("/psaf/ego_vehicle/next_lanelet")
             if bb_dist is not None:
                 is_next_intersection = bb_dist.isInIntersection
                 if is_next_intersection:
-                    success_local_path = self.update_local_path()
+                    success_local_path = self.update_local_path().Success
                 else:
-                    success_local_path = self.update_local_path(leave_intersection=True)
+                    success_local_path = self.update_local_path(leave_intersection=True).Success
                 if success_local_path:
                     rospy.loginfo("Everything is fine. We can start now!")
                     self.target_speed_pub.publish(50.0)

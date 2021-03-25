@@ -28,11 +28,14 @@ class Approach(py_trees.behaviour.Behaviour):
         rospy.loginfo("start approaching behavior")
 
     def update(self):
-        light_status = self.blackboard.get("/psaf/ego_vehicle/traffic_light")
-        if light_status is None:
+        light_status_msg = self.blackboard.get("/psaf/ego_vehicle/traffic_light")
+        if light_status_msg is None:
             return py_trees.common.Status.SUCCESS
         else:
-            light_status = light_status.data
+            light_status = light_status_msg.color
+            rospy.loginfo(f"Light Status: {light_status}")
+            light_distance = light_status_msg.distance
+            rospy.loginfo(f"Light distance: {light_distance}")
 
         # if no stop line seen within 3 seconds, return success
         if not self.stopline_detected and (rospy.get_time() - self.start_time) > 15:
@@ -41,9 +44,12 @@ class Approach(py_trees.behaviour.Behaviour):
 
         # check for stopline update
         _dis = self.blackboard.get("/psaf/ego_vehicle/stopline_distance")
+
         if _dis is not None:
             self.stopline_distance = _dis.data
-
+            rospy.loginfo(f"Stopline distance: {self.stopline_distance}")
+        self.target_speed_pub.publish(5)
+        return py_trees.common.Status.RUNNING
         # check if stop line detected
         if self.stopline_detected is False and self.stopline_distance != np.inf:
             self.stopline_detected = True
@@ -72,7 +78,7 @@ class Approach(py_trees.behaviour.Behaviour):
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
         if self.speed < 2:
             return py_trees.common.Status.SUCCESS
-        elif self.stopline_detected and self.stopline_distance != np.inf:
+        elif self.stopline_detected and self.stopline_distance == np.inf:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.RUNNING
@@ -98,7 +104,7 @@ class Wait(py_trees.behaviour.Behaviour):
         if light_status is None:
             return py_trees.common.Status.SUCCESS
         else:
-            light_status = light_status.data
+            light_status = light_status.color
         if light_status == "red" or light_status == "yellow":
             self.target_speed_pub.publish(0)
             return py_trees.common.Status.RUNNING

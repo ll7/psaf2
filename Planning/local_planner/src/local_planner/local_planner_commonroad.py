@@ -112,7 +112,7 @@ class LocalPlanner:
                             self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
                     except IndexError:
                         rospy.loginfo("Local Planner Intersection Approaching: No successor found")
-                        return
+                        return True
                     if next_lanelet.predecessor[0] == lane_id:  # no lane change
                         rospy.loginfo("Keep Lane")
                         path.extend(current_lanelet.center_vertices[idx_nearest_point:])

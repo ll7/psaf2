@@ -29,7 +29,11 @@ class LineDetector(object):
         self.stopline_threshold = 0.15 * np.pi
         self.stopline_len_threshold = 0.35 * self.imgwidth
         self.debug_mode = False # if true, roadmark image and cv2 lines are published
-        
+
+        self.depth_img = None
+        self._rgb_front_image_subscriber = rospy.Subscriber(
+            "/carla/{}/camera/depth/front/image_depth".format(role_name), Image, self.depth_image_updated)
+
     def run_step(self):
         """
         Run HoughTransformation, cluster lines, compute offset.
@@ -65,13 +69,14 @@ class LineDetector(object):
                 # make clusters and compute representative for each one
                 cluster_bounds = self.convert_clusters(clusters)
                 lines_cluster = self.group_lines(cluster_bounds, lines)
-                fangles, ypos, lengths = self.merge_cluster(lines_cluster)
+                fangles, ypos, lengths, start_end_pos = self.merge_cluster(lines_cluster)
 
                 # check if one representative could be a stop line
                 distance_to_stop = np.inf
                 for idx, a in enumerate(fangles):
                     if abs(a) < self.stopline_threshold and lengths[idx] > self.stopline_len_threshold:
-                        distance_to_stop = (self.imgheight - ypos[idx]) / self.imgheight
+                        # use depth camera to determine distance
+                        distance_to_stop = self.check_on_depth_image(start_end_pos[idx])
                         break
                 
                 # if there is a stopline publish the relative distance to it
@@ -124,6 +129,7 @@ class LineDetector(object):
         fangles = []
         ypos = []
         lengths = []
+        start_end_pos = []
         for idx, lines in enumerate(line_cluster):
             # use longest line
             x1, y1, x2, y2 = 0, 0, 0, 0
@@ -145,8 +151,21 @@ class LineDetector(object):
             ystar = (y1 + y2) / 2
             ypos.append(ystar)
             lengths.append(length)
+            start_end_pos.append(((x1, y1), (x2, y2)))
 
-        return fangles, ypos, lengths
+        return fangles, ypos, lengths, start_end_pos
+
+    def check_on_depth_image(self, start_end_pos):
+        height, width, depth = self._semantic_img.shape
+        mask = np.zeros((height, width), np.uint8)
+        cv2.line(mask, start_end_pos[0], start_end_pos[1], 1, 2)
+        masked_depth = cv2.bitwise_and(self.depth_img, self.depth_img, mask=mask)
+        non_zero_entries = masked_depth[np.nonzero(masked_depth)]
+        if non_zero_entries.size != 0:
+            distance_closest_traffic_light = np.min(non_zero_entries)
+        else:
+            distance_closest_traffic_light = np.inf
+        return distance_closest_traffic_light
 
     def compute_offset(self, fangles):
         """
@@ -226,6 +245,18 @@ class LineDetector(object):
         """
         try:
             self._semantic_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+
+    def depth_image_updated(self, data):
+        """
+        Update callback for the RGB camera
+
+        :param data: the data received from the topic
+        :return:
+        """
+        try:
+            self.depth_img = self.bridge.imgmsg_to_cv2(data, "32FC1")
         except CvBridgeError as e:
             print(e)
 

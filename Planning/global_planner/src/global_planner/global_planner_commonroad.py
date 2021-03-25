@@ -43,6 +43,7 @@ class GlobalPlanner:
         self.intersection_lanelet_ids = None
         self.with_rules = True
         self.target_pos = (10, 50)
+        self.map_number = None
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -54,7 +55,7 @@ class GlobalPlanner:
         self.current_orientation = msg.pose.pose
 
     def world_info_received(self, msg):
-        self.map_number = msg.map_name
+        self.map_number = int(msg.map_name[-1])
 
     def publish_intersection_lanelet_ids(self):
         """
