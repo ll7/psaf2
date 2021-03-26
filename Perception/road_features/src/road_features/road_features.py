@@ -122,7 +122,7 @@ class TrafficFeatures:
                 if lane.adj_right_same_direction:
                     ls.isMultiLane = True
                     ls.rightLaneId = lane.adj_right
-        if min_distance_to_outer < 20:
+        if min_distance_to_outer < 30:
             # rospy.loginfo("On Lanelet to RoundAbout")
             roundabout_msg = NextLanelet()
             roundabout_msg.isRoundabout = True

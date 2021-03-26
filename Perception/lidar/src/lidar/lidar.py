@@ -208,52 +208,40 @@ class Lidar(object):
                            
     def check_lanelet_free(self, req):
         lanelet_id = req.lanelet_id
-        rospy.loginfo(f"check_lanelet_free for lanelet_id = {lanelet_id}")
         if lanelet_id != 0:                    
             lanelet = self.scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
-            if self.points is None:
-                rospy.loginfo("no lidar points available")
-                return
-            points = self.points
+            if self.points is None:              
+                return False             
+            points = list(self.points)
+            if len(points) == 0:
+                return False 
             transformed_lidar_poses = self.transform_lidar_into_map_coords(points)    
-            rospy.loginfo(f"got {len(transformed_lidar_poses)} transformed poses") 
             if lanelet is not None:  
-                rospy.loginfo("got lanelet to check")          
                 filtered_poses = self.filter_lidar_poses(lanelet, transformed_lidar_poses)      
-                rospy.loginfo(f"got {len(filtered_poses)} filter points")       
                 if len(filtered_poses) > 0:                 
                     dist = self.calc_dist(filtered_poses)           
                     if dist > 0 and dist < self.max_dist_lidar:
-                        rospy.loginfo("found an object")        
                         return False 
                     else:
-                        rospy.loginfo("found no object")  
                         return True 
                 else:
                     #successor
                     filtered_poses = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(lanelet.successor[0]), transformed_lidar_poses)
-                    rospy.loginfo(f"got {len(filtered_poses)} filter points from successor ({lanelet.successor[0]})")  
                     if len(filtered_poses) > 0:                 
                         dist = self.calc_dist(filtered_poses)           
                         if dist > 0 and dist < self.max_dist_lidar: 
-                            rospy.loginfo("found an object on successor")       
                             return False                     
                         else:
-                            rospy.loginfo("found no object")  
                             return True
                     else:
                         #predecessor
                         filtered_poses = self.filter_lidar_poses(self.scenario.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0]), transformed_lidar_poses)
-                        rospy.loginfo(f"got {len(filtered_poses)} filter points from predecessor ({lanelet.predecessor[0]})") 
                         if len(filtered_poses) > 0:                 
                             dist = self.calc_dist(filtered_poses)           
                             if dist > 0 and dist < self.max_dist_lidar:  
-                                rospy.loginfo("found an object on predecessor")
                                 return False
                             else:
-                                rospy.loginfo("found no object")  
                                 return True
-        rospy.loginfo("return true at the end")
         return True     
                     
     

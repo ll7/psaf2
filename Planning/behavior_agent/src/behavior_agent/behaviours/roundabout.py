@@ -34,16 +34,15 @@ class Approach(py_trees.behaviour.Behaviour):
             dist_y = msg.entry_point.y - self.odo.pose.pose.position.y
             dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
             rospy.loginfo(f"distance to roundabout in roundabout = {dist}")
-            if dist < 20:
-                v = 30
+            if dist < 30:
+                v = max(5., (dist/30)**1.5 * 50)
                 # rospy.loginfo("changed target_speed for roundabout")
+                rospy.loginfo(f"v = {v}" )
                 self.target_speed_pub.publish(v)
-            if dist < 15:
-                self.target_speed_pub.publish(15)
 
         self.speed =  np.sqrt(
             self.odo.twist.twist.linear.x ** 2 + self.odo.twist.twist.linear.y ** 2 + self.odo.twist.twist.linear.z ** 2)*3.6
-        if dist < 7:
+        if dist < 5:
             self.target_speed_pub.publish(0.0)
             return py_trees.common.Status.SUCCESS
         else:
@@ -60,27 +59,24 @@ class Wait(py_trees.behaviour.Behaviour):
         self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         rospy.wait_for_service('check_lanelet_free')
         self.lanelet_free = rospy.ServiceProxy("check_lanelet_free", TrafficOnLanelet)
-
+       
         self.Successs = True
         return True
 
     def initialise(self): 
         self.blackboard = py_trees.blackboard.Blackboard()
 
-    def update(self):
-        rospy.loginfo("update in wait")
+    def update(self):        
         # self.target_speed_pub.publish(30)        
         first_lanelet_roundabout = self.blackboard.get("/psaf/ego_vehicle/first_lanelet_roundabout")
-        rospy.loginfo(f"id first_lanelet_roundabout = {first_lanelet_roundabout}")
         if first_lanelet_roundabout is not None:
             success_lanelet_free = self.lanelet_free(isRoundabout=True, lanelet_id=first_lanelet_roundabout.data)
             rospy.loginfo(f"success_lanelet_free = {success_lanelet_free.Free}")
             if success_lanelet_free.Free:
-                self.target_speed_pub.publish(30)
-                rospy.loginfo("success")
-                return py_trees.common.Status.SUCCESS
-            else:
-                return py_trees.common.Status.RUNNING
+                # self.target_speed_pub.publish(30)
+                # rospy.loginfo("success")
+                return py_trees.common.Status.SUCCESS        
+        return py_trees.common.Status.RUNNING
         
         
     def terminate(self, new_status):

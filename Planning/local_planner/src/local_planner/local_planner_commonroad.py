@@ -33,12 +33,12 @@ class LocalPlanner:
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.lanelet_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, self.lanelets_received)
-        self.roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", NextLanelet, queue_size=1)
-        self.roundabout_exit_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_exit_roundabout", Point, queue_size=1, latch=True)
 
         # add ros publishers
         self.local_path_pub = rospy.Publisher(f"/psaf/{self.role_name}/local_path", Path, queue_size=1, latch=True)
         self.first_lanelet_roundabout = rospy.Publisher(f"/psaf/{self.role_name}/first_lanelet_roundabout", Int32 , queue_size=1, latch=True)
+        self.roundabout_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_next_roundabout", NextLanelet, queue_size=1)
+        self.roundabout_exit_pub = rospy.Publisher(f"/psaf/{self.role_name}/distance_exit_roundabout", Point, queue_size=1, latch=True)
 
     def map_received(self, msg):
         self.scenario, _ = CommonRoadFileReader(msg.data).open()
@@ -140,7 +140,11 @@ class LocalPlanner:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
                 elif approach_roundabout:
                     rospy.loginfo("Approach Roundabout")
-                    path.extend(current_lanelet.center_vertices[idx_nearest_point:])
+                    if current_lanelet.adj_right is not None:  # lane change right
+                        path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
+                        current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet.adj_right)
+                    else:
+                        path.extend(current_lanelet.center_vertices[idx_nearest_point:])
                     
                     #über globalen Pfad den Ausgang finden
                     if self.lanelets_roundabout_outgoing is not None:
@@ -172,8 +176,8 @@ class LocalPlanner:
                         #sobald eine distanz < 1, wechsel zu nächstem punkt auf mittellinie dieser outer circle lanelet
                                     
                         if len(distances_to_outer_circle) > 0:
-                            if np.min(distances_to_outer_circle) < 20:
-                                rospy.loginfo("distance to outer circle < 20")
+                            if np.min(distances_to_outer_circle) < 30:
+                                # rospy.loginfo("distance to outer circle < 20")
                                 if closest_lanelet_on_outer_circle is not None:                                    
                                     #Schnittpunkt Kreisverkehrspur und aktuelle spur finden
                                     minimum, idx_minimum_one, idx_minimum_two = self.intersection_id_of_two_center_vertices(closest_lanelet_on_outer_circle, current_lanelet)

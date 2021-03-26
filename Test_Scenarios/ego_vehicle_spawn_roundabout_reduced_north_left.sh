@@ -6,7 +6,7 @@ gnome-terminal --execute bash -c "rviz -d '/home/brandlju/Desktop/local_global_p
 sleep 9s
 gnome-terminal --execute bash -c "rosservice call update_local_path '{}'"
 sleep 2s
-gnome-terminal --execute bash -c "python scenario_all_random.py -n 150"
+gnome-terminal --execute bash -c "python scenario_roundabout.py"
 sleep 2s
 gnome-terminal --execute bash -c "rqt_console"
 

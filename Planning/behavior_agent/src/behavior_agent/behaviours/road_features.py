@@ -60,7 +60,7 @@ class RoundaboutAhead(py_trees.behaviour.Behaviour):
             dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
             rospy.loginfo(f"distance to roundabout in road_features = {dist}")
             self.dist = dist
-        if self.dist < 20:
+        if self.dist < 30:
             rospy.loginfo("approaching roundabout")
             return py_trees.common.Status.SUCCESS
         else:
