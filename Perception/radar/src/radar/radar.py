@@ -115,10 +115,11 @@ class Radar(object):
 
         try:
             trans = self.tf_buffer.lookup_transform('map', 'ego_vehicle/radar/front', rospy.Time())
+            return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             print("Error in transformation")                       
 
-        return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
+        
 
     def radar_updated(self, msg):
         """
