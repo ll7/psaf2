@@ -70,26 +70,30 @@ class TrafficFeatures:
                 ls.currentLaneId = current_lanelet_id
                 break
 
-        next_lanelet_msg = NextLanelet()
-        lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)
+        next_lanelet_msg = NextLanelet()  # create NextLanelet Message
+        lane = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id)  # get Lanelet Object
         if lane is None:
             next_lanelet_msg.distance = np.inf
             next_lanelet_msg.isInIntersection = False
         else:
+            # get distance to next lanelet
             distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
             idx = np.argmin(distances_to_center_vertices)
             next_lanelet_msg.distance = self.lanelet_lengths[current_lanelet_id][-1] - self.lanelet_lengths[current_lanelet_id][idx]
+            # check if next lanelet is in an intersection
             if current_lanelet_id in self.intersection_lanelet_ids:
                 next_lanelet_msg.isInIntersection = False
             else:
                 next_lanelet_msg.isInIntersection = True
-                if lane.adj_left_same_direction:
-                    ls.isMultiLane = True
-                    ls.leftLaneId = lane.adj_left
-                if lane.adj_right_same_direction:
-                    ls.isMultiLane = True
-                    ls.rightLaneId = lane.adj_right
+            # check for left/right lane
+            if lane.adj_left_same_direction:
+                ls.isMultiLane = True
+                ls.leftLaneId = lane.adj_left
+            if lane.adj_right_same_direction:
+                ls.isMultiLane = True
+                ls.rightLaneId = lane.adj_right
 
+        # publish messages
         self.distance_pub.publish(next_lanelet_msg)
         self.lane_status_pub.publish(ls)
 
