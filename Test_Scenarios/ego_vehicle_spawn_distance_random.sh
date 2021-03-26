@@ -4,7 +4,7 @@ gnome-terminal --execute bash -c "source ~/carla-ros-bridge/catkin_ws/devel/setu
 sleep 5s 
 gnome-terminal --execute bash -c "rviz"
 sleep 2s
-gnome-terminal --execute bash -c "python scenario_all_random.py -n 200"
+gnome-terminal --execute bash -c "python scenario_all_random.py -n 100"
 sleep 1s
 gnome-terminal --execute bash -c "rostopic pub /psaf/ego_vehicle/target_speed std_msgs/Float64 60.0"
 
