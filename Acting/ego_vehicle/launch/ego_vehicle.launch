@@ -16,7 +16,7 @@
   <arg name="town" default=''/>
 
   <!-- Synchronous mode-->
-  <arg name='synchronous_mode' default='true'/>
+  <arg name='synchronous_mode' default=''/>
   <arg name='synchronous_mode_wait_for_vehicle_control_command' default=''/>
   <arg name='fixed_delta_seconds' default=''/>
 

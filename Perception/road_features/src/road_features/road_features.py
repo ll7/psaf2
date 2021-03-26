@@ -106,6 +106,7 @@ class TrafficFeatures:
                 if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
                     # rospy.loginfo("current_lanelet_id is in incoming_roundabout_lanes")
                     point_with_min_distance = None
+                    lane_with_min_distance = None
                     for inner_lanelet_id in self.lanelet_ids_roundabout_inside_outer_circle:
                         inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
                         distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)
@@ -113,6 +114,7 @@ class TrafficFeatures:
                         if _min < min_distance_to_outer:
                             min_distance_to_outer = _min
                             point_with_min_distance = inner_lane.right_vertices[np.argmin(distances_to_right_vertices)]
+                            lane_with_min_distance = inner_lane
             else:
                 next_lanelet_msg.isInIntersection = True
                 distance = self.lanelet_lengths[current_lanelet_id][-1] - self.lanelet_lengths[current_lanelet_id][idx]
@@ -126,6 +128,9 @@ class TrafficFeatures:
             # rospy.loginfo("On Lanelet to RoundAbout")
             roundabout_msg = NextLanelet()
             roundabout_msg.isRoundabout = True
+
+            point_with_min_distance = self.get_entry_point_of_roundabout(lane_with_min_distance, self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id))
+            
             roundabout_msg.entry_point = Point(point_with_min_distance[0], point_with_min_distance[1], 0)
             # rospy.loginfo("pub roundaboutmsg ")
             self.roundabout_pub.publish(roundabout_msg)
@@ -133,6 +138,31 @@ class TrafficFeatures:
         else:
             self.distance_pub.publish(next_lanelet_msg)
             self.lane_status_pub.publish(ls)
+
+    def intersection_id_of_two_center_vertices(self, lane_one, lane_two):
+        minimum = 100
+        idx_minimum_one = 0
+        idx_minimum_two = 0
+        for i,p in enumerate(lane_two.right_vertices):
+            distances = np.linalg.norm(lane_one.center_vertices - p, axis = 1)
+            if np.min(distances) < minimum:
+                minimum = np.min(distances)
+                idx_minimum_one = np.argmin(distances)
+                idx_minimum_two = i
+        return minimum, idx_minimum_one, idx_minimum_two
+
+    def get_entry_point_of_roundabout(self, closest_lanelet_on_outer_circle, current_lanelet):
+        minimum, idx_minimum_one, idx_minimum_two = self.intersection_id_of_two_center_vertices(current_lanelet, closest_lanelet_on_outer_circle)
+        if minimum > 2:
+            successor_id = current_lanelet.successor[0]
+            if successor_id is not None:
+                successor = self.scenario.lanelet_network.find_lanelet_by_id(successor_id)
+                minimim_succesor, idx_minimum_succesor, idx_minimum_closest = self.intersection_id_of_two_center_vertices(successor, closest_lanelet_on_outer_circle)
+                return closest_lanelet_on_outer_circle.right_vertices[idx_minimum_closest]
+            else:
+                return closest_lanelet_on_outer_circle.right_vertices[idx_minimum_two]                                        
+        else:
+            return closest_lanelet_on_outer_circle.right_vertices[idx_minimum_two]
 
     def run(self):
         """
