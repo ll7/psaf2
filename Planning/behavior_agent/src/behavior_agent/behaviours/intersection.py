@@ -48,8 +48,8 @@ class Approach(py_trees.behaviour.Behaviour):
         if _dis is not None:
             self.stopline_distance = _dis.data
             rospy.loginfo(f"Stopline distance: {self.stopline_distance}")
-        self.target_speed_pub.publish(5)
-        return py_trees.common.Status.RUNNING
+
+        
         # check if stop line detected
         if self.stopline_detected is False and self.stopline_distance != np.inf:
             self.stopline_detected = True
