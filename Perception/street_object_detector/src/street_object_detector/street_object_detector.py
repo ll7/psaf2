@@ -17,6 +17,7 @@ class StreetObjectDetector:
     def __init__(self, role_name):
         self.role_name = role_name
         self.bridge = CvBridge()
+        self.sem_seg_height_width = (300, 400)
 
         self.rgb_img = None
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
@@ -37,6 +38,10 @@ class StreetObjectDetector:
 
         self.map_number = None
         self.world_info = rospy.Subscriber("/carla/world_info", CarlaWorldInfo, self.world_info_received)
+
+        self.mask_right_side = np.zeros(self.sem_seg_height_width, np.uint8)
+        self.mask_front_triangle = np.zeros(self.sem_seg_height_width, np.uint8)
+        self.create_masks()
 
     def world_info_received(self, msg):
         self.map_number = int(msg.map_name[-1])
@@ -77,43 +82,61 @@ class StreetObjectDetector:
         except CvBridgeError as e:
             print_exc()
 
+    def create_masks(self):
+        """
+        Create masks for the segmented segmentation.
+        :return:
+        """
+        height, width = self.sem_seg_height_width
+
+        pts = np.array([[width//2, 0], [width, 0], [width, height], [width//2, height]])  # mask for right side
+        cv2.drawContours(self.mask_right_side, [pts], -1, 1, -1, cv2.LINE_AA)
+
+        pts = np.array([[75, 300], [175, 0], [200, 0], [325, 300]])  # mask to detected american style traffic lights
+        cv2.drawContours(self.mask_front_triangle, [pts], -1, 1, -1, cv2.LINE_AA)
+
     def detect_traffic_lights(self):
         sem_img = copy.deepcopy(self.semantic_segmentation_img)
         rgb_img = copy.deepcopy(self.rgb_img)
         depth_img = copy.deepcopy(self.depth_img)
 
-        # create a triangle shaped mask that cuts out the traffic lights in the rgb image
-        # with help of segmented segmentation
-        height, width, depth = sem_img.shape
-        mask = np.zeros((height, width), np.uint8)
-        mask[np.where((sem_img == [30, 170, 250]).all(axis=2))] = 1
         if self.map_number == 3 or self.map_number == 5:  # on this maps traffic light style is american
-            pts = np.array([[75, 300], [175, 0], [200, 0], [325, 300]])
-            triangle_mask = np.zeros((height, width), np.uint8)
-            cv2.drawContours(triangle_mask, [pts], -1, 1, -1, cv2.LINE_AA)
-            mask = cv2.bitwise_and(mask, mask, mask=triangle_mask)
+            traffic_light_mask = self.mask_front_triangle
+        else:
+            traffic_light_mask = self.mask_right_side
 
-        try: # error that can occur at startup
-            depth_img_traffic_lights = cv2.bitwise_and(depth_img, depth_img, mask=mask)
+        try:  # error that can occur at startup
+            traffic_light_rgb_mask = np.zeros(self.sem_seg_height_width, np.uint8)  # create mask
+            traffic_light_rgb_mask[np.where((sem_img == [30, 170, 250]).all(axis=2))] = 1  # find traffic light
+            # use only the traffic lights inside the mask
+            traffic_light_rgb_mask = cv2.bitwise_and(traffic_light_rgb_mask, traffic_light_rgb_mask, mask=traffic_light_mask)
+
+            # get distance to closest traffic_light
+            depth_img_traffic_lights = cv2.bitwise_and(depth_img, depth_img, mask=traffic_light_rgb_mask)
             non_zero_entries = depth_img_traffic_lights[np.nonzero(depth_img_traffic_lights)]
             if non_zero_entries.size != 0:
                 distance_closest_traffic_light = np.min(non_zero_entries)
             else:
                 distance_closest_traffic_light = np.inf
 
-            mask_resized = cv2.resize(mask, (800, 600))
-            traffic_lights_image = cv2.bitwise_and(rgb_img, rgb_img, mask=mask_resized)
-            color = self.detect_traffic_light_color(traffic_lights_image, 10)
+            # detect color
+            traffic_light_rgb_mask = cv2.resize(traffic_light_rgb_mask, (800, 600))  # upscale mask to fit for rgb image
+            traffic_lights_cut_out = cv2.bitwise_and(rgb_img, rgb_img, mask=traffic_light_rgb_mask)  # cut out rgb mask
+            color = self.detect_traffic_light_color(traffic_lights_cut_out, 10)
 
+            # publish gathered information
             traffic_light_msg = TrafficLight()
             traffic_light_msg.color = color
             traffic_light_msg.distance = distance_closest_traffic_light
             self.traffic_light_publisher.publish(traffic_light_msg)
-        except cv2.error:
+
+        except cv2.error as e:
+            print(e.err)
+            print(e)
             return
 
         try:
-            im = self.bridge.cv2_to_imgmsg(traffic_lights_image)
+            im = self.bridge.cv2_to_imgmsg(traffic_lights_cut_out)
             self.roadmark_publisher.publish(im)
         except CvBridgeError as e:
             print(e)
