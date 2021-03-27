@@ -1,4 +1,5 @@
 import copy
+import time
 
 import rospy
 import numpy as np
@@ -11,7 +12,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from carla_msgs.msg import CarlaWorldInfo
 from custom_carla_msgs.msg import TrafficLight
-
+import pytesseract
 
 class StreetObjectDetector:
     def __init__(self, role_name):
@@ -95,6 +96,50 @@ class StreetObjectDetector:
         pts = np.array([[75, 300], [175, 0], [200, 0], [325, 300]])  # mask to detected american style traffic lights
         cv2.drawContours(self.mask_front_triangle, [pts], -1, 1, -1, cv2.LINE_AA)
 
+    def detect_traffic_signs(self):
+        sem_img = copy.deepcopy(self.semantic_segmentation_img)
+        rgb_img = copy.deepcopy(self.rgb_img)
+        depth_img = copy.deepcopy(self.depth_img)
+
+        if sem_img is None or rgb_img is None or depth_img is None:
+            return
+
+        try:
+            # cut off left half
+            import matplotlib.pyplot as plt
+            sem_img = cv2.bitwise_and(sem_img, sem_img, mask=self.mask_right_side)
+
+            # find traffic sign in semantic segmentation
+            sem_mask = np.zeros(self.sem_seg_height_width, np.uint8)
+            sem_mask[np.where((sem_img == [0, 220, 220]).all(axis=2))] = 1
+            # get contour of the traffic signs
+            contours, hierarchy = cv2.findContours(sem_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            # get distances to the traffic signs
+            distances = []
+            for cnt in contours:
+                center = np.mean(cnt, axis=0, dtype=int)[0]
+                distances.append(depth_img[center[1], center[0]])
+                #cv2.drawContours(sem_mask, [cnt], 0, (255, 255, 255), 3)
+
+            if distances:
+                # get closest sign and create mask for that sign
+                closest_cnt = contours[np.argmin(distances)]
+                print(closest_cnt)
+                rgb_mask = np.zeros(self.sem_seg_height_width, np.uint8)
+                cv2.drawContours(rgb_mask, [closest_cnt], -1, 1, -1, cv2.LINE_AA)
+
+                rgb_mask = cv2.resize(rgb_mask, (800, 600))  # upscale mask to fit for rgb image
+                rgb_img = cv2.bitwise_and(rgb_img, rgb_img, mask=rgb_mask)  # get rgb image
+                self.get_ocr_text(rgb_img)
+                try:
+                    im = self.bridge.cv2_to_imgmsg(rgb_img)
+                    self.roadmark_publisher.publish(im)
+                except CvBridgeError as e:
+                    print(e)
+        except cv2.error as e:
+            return
+
     def detect_traffic_lights(self):
         sem_img = copy.deepcopy(self.semantic_segmentation_img)
         rgb_img = copy.deepcopy(self.rgb_img)
@@ -135,11 +180,47 @@ class StreetObjectDetector:
             print(e)
             return
 
-        try:
-            im = self.bridge.cv2_to_imgmsg(traffic_lights_cut_out)
-            self.roadmark_publisher.publish(im)
-        except CvBridgeError as e:
-            print(e)
+        # try:
+        #     im = self.bridge.cv2_to_imgmsg(traffic_lights_cut_out)
+        #     self.roadmark_publisher.publish(im)
+        # except CvBridgeError as e:
+        #     print(e)
+
+    def get_ocr_text(self, street_sign_rgb):#, tesseract_config, preprocess_tasks, resize_to, replacement_rules):
+        """
+        Extracts text from a given image by calling pytesseract.
+
+        :param street_sign_rgb: the image to extract text from
+        :param tesseract_config: the tesseract config string, e.g. "--psm 13"
+        :param preprocess_tasks: which preprocess tasks should be executed, possible values: "t" for thresholding, "b" for blurring (or both)
+        :param resize_to: resize the preprocessed image to a specific size before calling the OCR
+        :param replacement_rules: a dictionary of symbols to be replaced by another symbol, e.g. { "$": "9" }
+        :return: the extracted text
+        """
+        custom_config = r'--oem 3 --psm 6 outputbase digits'
+        gray = cv2.cvtColor(street_sign_rgb, cv2.COLOR_BGR2GRAY)
+
+        # if resize_to != 0:
+        #     resize_factor = resize_to / gray.shape[1]
+        #     new_width = int(gray.shape[1] * resize_factor)
+        #     new_height = int(gray.shape[0] * resize_factor)
+        #     gray = cv2.resize(gray, (new_width, new_height))
+
+        # if "b" in preprocess_tasks:
+        #     gray = cv2.medianBlur(gray, 3)  # apply blurring
+        # if "t" in preprocess_tasks:
+        #     gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11,
+        #                                  1)  # apply thresholding
+
+        text = pytesseract.image_to_string(gray, config=custom_config)
+        rospy.loginfo(text)
+        #text = text.strip()  # cut off whitespace
+
+        # for replacement in replacement_rules:  # replace unwanted characters
+        #     text = text.replace(replacement[0], replacement[1])
+
+        return text
+
 
     def detect_traffic_light_color(self, img, pixel_count_threshold):
         """
@@ -200,6 +281,7 @@ class StreetObjectDetector:
         while not rospy.is_shutdown():
             if self.rgb_img is not None and self.semantic_segmentation_img is not None:
                 self.detect_traffic_lights()
+                self.detect_traffic_signs()
             try:
                 r.sleep()
             except rospy.ROSInterruptException:
