@@ -78,6 +78,9 @@ class Approach(py_trees.behaviour.Behaviour):
         elif speed < 2 and self.virtual_stopline_distance < 5:
             # stopped
             return py_trees.common.Status.SUCCESS
+        elif speed > 5 and self.virtual_stopline_distance < 6 and self.traffic_light_status == "green":
+            # drive through intersection even if traffic light turns yellow
+            return py_trees.common.Status.SUCCESS
         elif speed > 5 and self.virtual_stopline_distance < 3.5:
             # running over line
             return py_trees.common.Status.SUCCESS
