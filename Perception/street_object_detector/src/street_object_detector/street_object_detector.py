@@ -167,7 +167,7 @@ class StreetObjectDetector:
             # detect color
             traffic_light_rgb_mask = cv2.resize(traffic_light_rgb_mask, (800, 600))  # upscale mask to fit for rgb image
             traffic_lights_cut_out = cv2.bitwise_and(rgb_img, rgb_img, mask=traffic_light_rgb_mask)  # cut out rgb mask
-            color = self.detect_traffic_light_color(traffic_lights_cut_out, 10)
+            color = self.detect_traffic_light_color(traffic_lights_cut_out, 6)
 
             # publish gathered information
             traffic_light_msg = TrafficLight()
