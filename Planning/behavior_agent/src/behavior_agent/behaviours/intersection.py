@@ -47,7 +47,10 @@ class Approach(py_trees.behaviour.Behaviour):
             rospy.loginfo(f"Stopline distance: {self.stopline_distance}")
         
         # calculate virtual stopline
-        self.virtual_stopline_distance = min(self.traffic_light_distance, self.stopline_distance)
+        if self.stopline_distance != np.inf:
+            self.virtual_stopline_distance = self.stopline_distance
+        else:
+            self.virtual_stopline_distance = self.traffic_light_distance
         
         # calculate speed needed for stopping
         v_stop = max(5., (self.virtual_stopline_distance/30)**1.5 * 50)
@@ -57,12 +60,8 @@ class Approach(py_trees.behaviour.Behaviour):
             v_stop = 0
         # stop when there is no or red/yellow traffic light
         if self.traffic_light_status == '' or self.light_status == 'red' or self.traffic_light_status == 'yellow':
-            if self.virtual_stopline_distance < 1:
-                rospy.loginfo("stopping immediately")
-                self.target_speed_pub.publish(0)
-            else:
-                rospy.loginfo(f"slowing down: {v_stop}")
-                self.target_speed_pub.publish(v_stop)
+            rospy.loginfo(f"slowing down: {v_stop}")
+            self.target_speed_pub.publish(v_stop)
         
         # approach slowly when traffic light is green
         if self.traffic_light_status == 'green':
@@ -71,6 +70,23 @@ class Approach(py_trees.behaviour.Behaviour):
         # get speed
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         speed = np.sqrt(odo.twist.twist.linear.x ** 2 + odo.twist.twist.linear.y ** 2 + odo.twist.twist.linear.z ** 2)*3.6
+
+
+        if self.virtual_stopline_distance > 5:
+            # too far
+            return py_trees.common.Status.RUNNING
+        elif speed < 2 and self.virtual_stopline_distance < 5:
+            # stopped
+            return py_trees.common.Status.SUCCESS
+        elif speed > 5 and self.virtual_stopline_distance < 3.5:
+            # running over line
+            return py_trees.common.Status.SUCCESS
+        elif self.last_virtual_distance == self.virtual_stopline_distance and self.virtual_stopline_distance < 10:
+            # ran over line
+            return py_trees.Status.SUCCESS
+        else:
+            return py_trees.Status.RUNNING
+        
 
         if (self.last_virtual_distance == self.virtual_stopline_distance and self.virtual_stopline_distance < 10) or self.virtual_stopline_distance < 3.5:
             return py_trees.common.Status.SUCCESS
