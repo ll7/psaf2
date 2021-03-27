@@ -36,8 +36,8 @@ class Approach(py_trees.behaviour.Behaviour):
         # Update Light Info
         light_status_msg = self.blackboard.get("/psaf/ego_vehicle/traffic_light")
         if light_status_msg is not None:
-            self.light_status = light_status_msg.color
-            rospy.loginfo(f"Light Status: {self.light_status}")
+            self.traffic_light_status = light_status_msg.color
+            rospy.loginfo(f"Light Status: {self.traffic_light_status}")
             self.traffic_light_distance = light_status_msg.distance
             rospy.loginfo(f"Light distance: {self.traffic_light_distance}")
         # Update stopline Info
@@ -59,7 +59,7 @@ class Approach(py_trees.behaviour.Behaviour):
         if self.virtual_stopline_distance < 3.5:
             v_stop = 0
         # stop when there is no or red/yellow traffic light
-        if self.traffic_light_status == '' or self.light_status == 'red' or self.traffic_light_status == 'yellow':
+        if self.traffic_light_status == '' or self.traffic_light_status == 'red' or self.traffic_light_status == 'yellow':
             rospy.loginfo(f"slowing down: {v_stop}")
             self.target_speed_pub.publish(v_stop)
         
@@ -83,9 +83,9 @@ class Approach(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.SUCCESS
         elif self.last_virtual_distance == self.virtual_stopline_distance and self.virtual_stopline_distance < 10:
             # ran over line
-            return py_trees.Status.SUCCESS
+            return py_trees.common.Status.SUCCESS
         else:
-            return py_trees.Status.RUNNING
+            return py_trees.common.Status.RUNNING
         
 
         if (self.last_virtual_distance == self.virtual_stopline_distance and self.virtual_stopline_distance < 10) or self.virtual_stopline_distance < 3.5:
