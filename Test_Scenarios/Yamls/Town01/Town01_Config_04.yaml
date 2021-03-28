@@ -2,7 +2,7 @@ competition:
   start:
     position:
       x: 339.30
-      y: 45.08
+      y: -45.08
       z: 0.0
     orientation:
       x: 0.0
@@ -12,7 +12,7 @@ competition:
   goal:
     position:
       x: 142.92
-      y: 326.97
+      y: -326.97
       z: 0.0
   traffic_rules: true
   ready_for_ego: false
