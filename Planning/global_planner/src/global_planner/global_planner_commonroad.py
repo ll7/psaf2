@@ -36,6 +36,12 @@ class GlobalPlanner:
         self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets,
                                            queue_size=1, latch=True)
 
+        self.lanelet_ids_roundabout_inside = None
+        self.lanelet_ids_roundabout_incoming = None
+        self.lanelet_ids_roundabout_outgoing = None
+        self.lanelet_ids_roundabout_inside_inner_circle = None
+        self.lanelet_ids_roundabout_inside_outer_circle = None
+
         self.scenario = None
         self.planning_problem_Set = None
         self.current_pos = None
