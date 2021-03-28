@@ -45,12 +45,12 @@ class Approach(py_trees.behaviour.Behaviour):
 
         # if no stop line, wait for one to appear or time to run out
         if not self.stopline_detected:
-            rospy.loginfo("waiting for stop line or time out")
+            #rospy.loginfo("waiting for stop line or time out")
             return py_trees.common.Status.RUNNING
 
         # if stop line has been detected and now there is none, we've passed it and need to break immediately
         if self.stopline_detected and self.stopline_distance == np.inf:
-            rospy.loginfo("ran over stop line")
+            #rospy.loginfo("ran over stop line")
             self.target_speed_pub.publish(0)
 
         # calculate speed depending on the distance to stop line

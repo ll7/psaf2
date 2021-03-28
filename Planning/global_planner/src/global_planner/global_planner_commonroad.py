@@ -36,6 +36,12 @@ class GlobalPlanner:
         self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets,
                                            queue_size=1, latch=True)
 
+        self.lanelet_ids_roundabout_inside = None
+        self.lanelet_ids_roundabout_incoming = None
+        self.lanelet_ids_roundabout_outgoing = None
+        self.lanelet_ids_roundabout_inside_inner_circle = None
+        self.lanelet_ids_roundabout_inside_outer_circle = None
+
         self.scenario = None
         self.planning_problem_Set = None
         self.current_pos = None
@@ -43,6 +49,12 @@ class GlobalPlanner:
         self.intersection_lanelet_ids = None
         self.with_rules = True
         self.target_pos = (92, -160)
+
+        self.lanelet_ids_roundabout_inside = []
+        self.lanelet_ids_roundabout_incoming = []
+        self.lanelet_ids_roundabout_outgoing = []
+        self.lanelet_ids_roundabout_inside_inner_circle = []
+        self.lanelet_ids_roundabout_inside_outer_circle = []     
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -54,7 +66,7 @@ class GlobalPlanner:
         self.current_orientation = msg.pose.pose
 
     def world_info_received(self, msg):
-        self.map_number = msg.map_name
+        self.map_number = int(msg.map_name[-1])
 
     def publish_intersection_lanelet_ids(self):
         """
@@ -97,23 +109,31 @@ class GlobalPlanner:
             if len(lane.predecessor) == 1 and len(lane.successor) == 1 and lane.distance[-1] < 100:
                 intersection_ids.append(lanelet_id)
 
-        # remove lanelets that were wrongly detected.
+        # map nummer 3 ist die mit kreisverkehr
         if self.map_number == 1:
             ids_to_remove = []
         elif self.map_number == 2:
             ids_to_remove = []
         elif self.map_number == 3:
             ids_to_remove = [115, 107, 342, 340, 176, 169, 258, 259, 260, 320, 386, 177]
+            self.lanelet_ids_roundabout_inside = [190, 191, 196, 306, 308, 305, 307, 198, 201, 202, 199, 195, 188, 193]
+            self.lanelet_ids_roundabout_incoming = [184, 181, 203, 280, 284, 194, 189, 347, 186, 183, 281, 277]
+            self.lanelet_ids_roundabout_outgoing = [200, 204, 345, 206, 187, 192, 197]
+            self.lanelet_ids_roundabout_inside_inner_circle = [190, 191, 306, 305, 198, 199, 188]
+            self.lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]                        
         elif self.map_number == 5:
-            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]
+            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]                            
         else:
             ids_to_remove = []
 
+        
+
         out_list = []
         for id in intersection_ids:
-            if id not in ids_to_remove:
+            if id not in ids_to_remove:        
                 out_list.append(id)
-
+        # and id not in lanelet_ids_roundabout_incoming
+        # and id not in self.lanelet_ids_roundabout_inside and id not in self.lanelet_ids_roundabout_outgoing
         if PLOT_CROSSING:
             plot_map(out_list, False)
 
@@ -213,6 +233,12 @@ class GlobalPlanner:
         lanelet_msg.lanelet_ids = shortest_route.list_ids_lanelets
         lanelet_msg.adjacent_lanelet_ids = json.dumps(shortest_route.retrieve_route_sections())
         lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
+
+        lanelet_msg.lanelet_ids_roundabout_inside = self.lanelet_ids_roundabout_inside
+        lanelet_msg.lanelet_ids_roundabout_incoming = self.lanelet_ids_roundabout_incoming
+        lanelet_msg.lanelet_ids_roundabout_outgoing = self.lanelet_ids_roundabout_outgoing
+        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = self.lanelet_ids_roundabout_inside_outer_circle       
+
         self.lanelet_pub.publish(lanelet_msg)
 
         # creat the global path message

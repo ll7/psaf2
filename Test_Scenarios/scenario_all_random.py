@@ -109,7 +109,7 @@ def main():
     all_id = []
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
-    synchronous_master = False
+    synchronous_master = True
     random.seed(args.seed if args.seed is not None else int(time.time()))
 
     try:

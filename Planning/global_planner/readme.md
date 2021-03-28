@@ -2,7 +2,7 @@
 Service to generate a global path from the current position to a target position. 
 
 To solve the problem the commonroad search package is used. This packaged uses the map provided by the commonroad_map_provider.
-The map contains a list of lanelets. Every lanelet represents one lane. The course of the lane is describes with points
+The map contains a list of lanelets. Every lanelet represents one lane. The course of the lane is described by points
 that form a polyline.
 Every lanelet can have none, one or more predecessor/successor lanelets and none or one left/right adjacent lanelets.
 E.g. in the figure below you can see that the turquoise lanelet with id 117 has the lanelet with id 115 as left adjacent 
@@ -18,7 +18,9 @@ path in this graph.
 The node publishes the global path as points to /psag/ego_vehicle/global_path. It also publishes a GlobalPathLanelets message with
 information about specific lanelets on the /psaf/ego_vehicle/global_path_lanelets topic. This message contains the lanelet ids
 that are used by the ego vehicle if it follows the global path. Moreover, if a lanelet on the path has a adjacent those
-lanelets are also included. All lanelets that are located in an intersection are published, too. 
+lanelets are also included. All lanelets that are located in an intersection are published, too. Furthermore, as roundabouts require 
+particular behavior, lanelets that form a roundabout are published. These are grouped into incoming, outgoing, 
+lanelets on the inner and on the outer ring of the roundabout.
 
 ## Topics
 Subscribes to
@@ -51,3 +53,5 @@ update_global_path()  # call service with keyword argument
 
 ## Authors 
 Julius Brandl
+Lukas Hartmann
+Wolfgang Lang
