@@ -19,7 +19,6 @@ class Approach(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
-        # self.update_local_path(approach_roundabout=True)
         self.update_local_path(approach_roundabout=True)
         self.blackboard = py_trees.blackboard.Blackboard()
         rospy.loginfo("Starting to approach Roundabout")
@@ -28,16 +27,12 @@ class Approach(py_trees.behaviour.Behaviour):
         
         msg = self.blackboard.get("/psaf/ego_vehicle/distance_next_roundabout")
         self.odo = self.blackboard.get("/carla/ego_vehicle/odometry")
-        # rospy.loginfo("we got a distance to next roundabout")
         if msg is not None and msg.isRoundabout:
             dist_x = msg.entry_point.x - self.odo.pose.pose.position.x
             dist_y = msg.entry_point.y - self.odo.pose.pose.position.y
             dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
-            rospy.loginfo(f"distance to roundabout in roundabout = {dist}")
             if dist < 30:
                 v = max(5., (dist/30)**1.5 * 50)
-                # rospy.loginfo("changed target_speed for roundabout")
-                rospy.loginfo(f"v = {v}" )
                 self.target_speed_pub.publish(v)
 
         self.speed =  np.sqrt(
@@ -67,14 +62,11 @@ class Wait(py_trees.behaviour.Behaviour):
         self.blackboard = py_trees.blackboard.Blackboard()
 
     def update(self):        
-        # self.target_speed_pub.publish(30)        
         first_lanelet_roundabout = self.blackboard.get("/psaf/ego_vehicle/first_lanelet_roundabout")
         if first_lanelet_roundabout is not None:
             success_lanelet_free = self.lanelet_free(isRoundabout=True, lanelet_id=first_lanelet_roundabout.data)
             rospy.loginfo(f"success_lanelet_free = {success_lanelet_free.Free}")
             if success_lanelet_free.Free:
-                # self.target_speed_pub.publish(30)
-                # rospy.loginfo("success")
                 return py_trees.common.Status.SUCCESS        
         return py_trees.common.Status.RUNNING
         
@@ -103,9 +95,7 @@ class Enter(py_trees.behaviour.Behaviour):
         if msg is not None:
             dist_x = msg.x - self.odo.pose.pose.position.x
             dist_y = msg.y - self.odo.pose.pose.position.y
-            dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
-            
-        rospy.loginfo(f"distance to exit point = {dist}")
+            dist = math.sqrt(dist_x ** 2 + dist_y ** 2)             
         if dist < 8:       
             return py_trees.common.Status.SUCCESS
         else:

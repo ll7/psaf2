@@ -87,7 +87,7 @@ class LocalPlanner:
     def intersection(self, lst1, lst2): 
         return list(set(lst1) & set(lst2))
 
-    def intersection_id_of_two_center_vertices(self, lane_one, lane_two):
+    def intersection_index_of_two_center_vertices(self, lane_one, lane_two):
         minimum = 100
         idx_minimum_one = 0
         idx_minimum_two = 0
@@ -98,6 +98,87 @@ class LocalPlanner:
                 idx_minimum_one = np.argmin(distances)
                 idx_minimum_two = i
         return minimum, idx_minimum_one, idx_minimum_two
+
+    def calculate_route_through_roundabout(self, current_lanelet, idx_nearest_point):
+        path = []
+        if current_lanelet.adj_right is not None:  # lane change right
+            path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
+            current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet.adj_right)
+        else:
+            path.extend(current_lanelet.center_vertices[idx_nearest_point:])
+        
+        #über globalen Pfad den Ausgang finden
+        if self.lanelets_roundabout_outgoing is not None:
+            outgoing_lanes = (self.intersection(list(self.lanelets_roundabout_outgoing), list(self.lanelets_path_ids)))
+            outgoing_lane = self.scenario.lanelet_network.find_lanelet_by_id(outgoing_lanes[0])
+            if outgoing_lane is None:
+                rospy.loginfo("No outgoing lane found!")
+                return False
+            #distanzen zu outer circle lanelets
+            distances_to_outer_circle = []
+            closest_lanelet_on_outer_circle = None
+            for outer_lanelet_id in self.lanelets_roundabout_inside_outer_circle:
+                outer_lane = self.scenario.lanelet_network.find_lanelet_by_id(outer_lanelet_id)
+                distances_to_right_vertices = np.linalg.norm(outer_lane.right_vertices - current_lanelet.center_vertices[-1], axis=1)
+
+                if len(distances_to_right_vertices) > 0:
+                    if len(distances_to_outer_circle) > 0:
+                        if np.min(distances_to_right_vertices) < np.min(distances_to_outer_circle):
+                            idx_nearest_point = np.argmin(distances_to_right_vertices) 
+                            closest_lanelet_on_outer_circle = outer_lane                                            
+                    else:
+                        idx_nearest_point = np.argmin(distances_to_right_vertices) 
+                        closest_lanelet_on_outer_circle = outer_lane 
+                    distances_to_outer_circle.append(np.min(distances_to_right_vertices))  
+            if len(distances_to_outer_circle) > 0:
+                if np.min(distances_to_outer_circle) < 30:
+                    if closest_lanelet_on_outer_circle is not None:                                    
+                        #Schnittpunkt Kreisverkehrspur und aktuelle spur finden
+                        minimum, idx_minimum_one, idx_minimum_two = self.intersection_index_of_two_center_vertices(closest_lanelet_on_outer_circle, current_lanelet)
+                        if minimum > 2:
+                            successor_id = current_lanelet.successor[0]
+                            if successor_id is not None:
+                                successor = self.scenario.lanelet_network.find_lanelet_by_id(successor_id)
+                                path.extend(successor.center_vertices)
+                                minimim_succesor, idx_minimum_succesor, idx_minimum_closest = self.intersection_index_of_two_center_vertices(successor, closest_lanelet_on_outer_circle)
+                                path = path[:-(len(successor.center_vertices) - idx_minimum_succesor + 2)]
+                                path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest + 2:])                                        
+                        else:
+                            path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two + 2)]
+                            path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one + 2:])
+
+
+                        self.first_lanelet_roundabout.publish(closest_lanelet_on_outer_circle.lanelet_id)
+                        #solange successor suchen, bis abstand zu outgoing < 4
+                        #außen im Kreisverkehr bis Ausgang fahren
+                        while closest_lanelet_on_outer_circle is not None:
+                            #berechnet minimale Distanz zwischen zwei lanelets und die Indizes zu den Lanlets, an welchen die minimale Distanz ist                                        
+                            minimum, idx_minimum_outgoing, idx_minimum_closest_lanelet = self.intersection_index_of_two_center_vertices(outgoing_lane, closest_lanelet_on_outer_circle)
+                            #vergleichen mit closest_lanelet_on_outer_circle.center_vertices
+                            distances_to_outgoing_center_vertices = [np.linalg.norm(outgoing_lane.center_vertices - p, axis=1) for p in closest_lanelet_on_outer_circle.center_vertices]
+                            if len(distances_to_outgoing_center_vertices) > 0:
+                                if minimum < 2:
+                                    less_steps = (len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)
+                                    if len(path) > less_steps + 3:
+                                        path = path[:-(less_steps + 3)]
+                                    else: 
+                                        path = path[:-less_steps]                                               
+                                    if len(outgoing_lane.center_vertices) > idx_minimum_outgoing + 3:
+                                        path.extend(outgoing_lane.center_vertices[(idx_minimum_outgoing + 3):])
+                                    else: 
+                                        path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
+                                    closest_lanelet_on_outer_circle = None
+                                    self.roundabout_exit_pub.publish(Point(outgoing_lane.center_vertices[-1][0], outgoing_lane.center_vertices[-1][1], 0))
+                                else:
+                                    successor = self.intersection(list(closest_lanelet_on_outer_circle.successor), list(self.lanelets_roundabout_inside_outer_circle))[0]
+                                    if successor is not None:
+                                        closest_lanelet_on_outer_circle = self.scenario.lanelet_network.find_lanelet_by_id(successor)
+                                        path.extend(closest_lanelet_on_outer_circle.center_vertices[:])
+                                    else:
+                                        closest_lanelet_on_outer_circle = None
+                            else:
+                                closest_lanelet_on_outer_circle = None
+        return path
 
     def update_local_path(self, req):
         """
@@ -140,97 +221,7 @@ class LocalPlanner:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
                 elif approach_roundabout:
                     rospy.loginfo("Approach Roundabout")
-                    if current_lanelet.adj_right is not None:  # lane change right
-                        path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
-                        current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet.adj_right)
-                    else:
-                        path.extend(current_lanelet.center_vertices[idx_nearest_point:])
-                    
-                    #über globalen Pfad den Ausgang finden
-                    if self.lanelets_roundabout_outgoing is not None:
-                        outgoing_lanes = (self.intersection(list(self.lanelets_roundabout_outgoing), list(self.lanelets_path_ids)))
-                        #rospy.loginfo(f"number outgoing_lanes = {len(outgoing_lanes)}" )
-                        #rospy.loginfo(f"outgoing_lanes_id = {outgoing_lanes[0]}")
-                        
-                        outgoing_lane = self.scenario.lanelet_network.find_lanelet_by_id(outgoing_lanes[0])
-                        if outgoing_lane is None:
-                            rospy.loginfo("No outgoing lane found!")
-                            return
-                        #distanzen zu outer circle lanelets
-                        distances_to_outer_circle = []
-                        closest_lanelet_on_outer_circle = None
-                        for inner_lanelet_id in self.lanelets_roundabout_inside_outer_circle:
-                            inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
-                            distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - current_lanelet.center_vertices[-1], axis=1)
-
-                            if len(distances_to_right_vertices) > 0:
-                                if len(distances_to_outer_circle) > 0:
-                                    if np.min(distances_to_right_vertices) < np.min(distances_to_outer_circle):
-                                        idx_nearest_point = np.argmin(distances_to_right_vertices) 
-                                        closest_lanelet_on_outer_circle = inner_lane                                            
-                                else:
-                                    idx_nearest_point = np.argmin(distances_to_right_vertices) 
-                                    closest_lanelet_on_outer_circle = inner_lane 
-                                distances_to_outer_circle.append(np.min(distances_to_right_vertices)) 
-                        #rospy.loginfo(distances_to_outer_circle)           
-                        #sobald eine distanz < 1, wechsel zu nächstem punkt auf mittellinie dieser outer circle lanelet
-                                    
-                        if len(distances_to_outer_circle) > 0:
-                            if np.min(distances_to_outer_circle) < 30:
-                                # rospy.loginfo("distance to outer circle < 20")
-                                if closest_lanelet_on_outer_circle is not None:                                    
-                                    #Schnittpunkt Kreisverkehrspur und aktuelle spur finden
-                                    minimum, idx_minimum_one, idx_minimum_two = self.intersection_id_of_two_center_vertices(closest_lanelet_on_outer_circle, current_lanelet)
-                                    if minimum > 2:
-                                        successor_id = current_lanelet.successor[0]
-                                        if successor_id is not None:
-                                            successor = self.scenario.lanelet_network.find_lanelet_by_id(successor_id)
-                                            path.extend(successor.center_vertices)
-                                            minimim_succesor, idx_minimum_succesor, idx_minimum_closest = self.intersection_id_of_two_center_vertices(successor, closest_lanelet_on_outer_circle)
-                                            path = path[:-(len(successor.center_vertices) - idx_minimum_succesor + 2)]
-                                            path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest + 2:])                                        
-                                    else:
-                                        path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two + 2)]
-                                        path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one + 2:])
-
-
-                                    self.first_lanelet_roundabout.publish(closest_lanelet_on_outer_circle.lanelet_id)
-                                    #solange successor suchen, bis abstand zu outgoing < 4
-                                    #außen im Kreisverkehr bis Ausgang fahren
-                                    while closest_lanelet_on_outer_circle is not None:
-                                        #rospy.loginfo("Extend path with next lane")
-                                        minimum, idx_minimum_outgoing, idx_minimum_closest_lanelet = self.intersection_id_of_two_center_vertices(outgoing_lane, closest_lanelet_on_outer_circle)
-                                        #vergleichen mit closest_lanelet_on_outer_circle.center_vertices
-                                        distances_to_outgoing_center_vertices = [np.linalg.norm(outgoing_lane.center_vertices - p, axis=1) for p in closest_lanelet_on_outer_circle.center_vertices]
-                                        # distances_to_outgoing_center_vertices = np.linalg.norm(outgoing_lane.center_vertices - closest_lanelet_on_outer_circle.center_vertices[-1], axis=1)
-                                        if len(distances_to_outgoing_center_vertices) > 0:
-                                            if np.min(minimum) < 2:
-                                                #rospy.loginfo(f"next Lane is outgoing_lane with distance = {minimum}")
-                                                less_steps = (len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)
-                                                #rospy.loginfo(f"reduced path with length {len(closest_lanelet_on_outer_circle.center_vertices)} by {less_steps}")
-                                                if len(path) > less_steps + 3:
-                                                    path = path[:-(less_steps + 3)]
-                                                else: 
-                                                    path = path[:-less_steps]                                               
-                                                if len(outgoing_lane.center_vertices) > idx_minimum_outgoing + 3:
-                                                    path.extend(outgoing_lane.center_vertices[(idx_minimum_outgoing + 3):])
-                                                else: 
-                                                    path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
-                                                closest_lanelet_on_outer_circle = None
-                                                self.roundabout_exit_pub.publish(Point(outgoing_lane.center_vertices[-1][0], outgoing_lane.center_vertices[-1][1], 0))
-                                            else:
-                                                #rospy.loginfo(np.min(distances_to_outgoing_center_vertices))
-                                                successor = self.intersection(list(closest_lanelet_on_outer_circle.successor), list(self.lanelets_roundabout_inside_outer_circle))[0]
-                                                if successor is not None:
-                                                    #rospy.loginfo(f"next lane is 1. successor with id {successor}")                                                 
-                                                    closest_lanelet_on_outer_circle = self.scenario.lanelet_network.find_lanelet_by_id(successor)
-                                                    path.extend(closest_lanelet_on_outer_circle.center_vertices[:])
-                                                else:
-                                                    #rospy.loginfo("no succesor found")
-                                                    closest_lanelet_on_outer_circle = None
-                                        else:
-                                            closest_lanelet_on_outer_circle = None     
-                    
+                    path = self.calculate_route_through_roundabout(current_lanelet, idx_nearest_point)                         
                 elif approach_intersection:
                     rospy.loginfo("Approach Intersection")
                     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor

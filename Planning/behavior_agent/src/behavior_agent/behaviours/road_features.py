@@ -58,7 +58,6 @@ class RoundaboutAhead(py_trees.behaviour.Behaviour):
             dist_x = bb.entry_point.x - self.odo.pose.pose.position.x
             dist_y = bb.entry_point.y - self.odo.pose.pose.position.y
             dist = math.sqrt(dist_x ** 2 + dist_y ** 2) 
-            rospy.loginfo(f"distance to roundabout in road_features = {dist}")
             self.dist = dist
         if self.dist < 30:
             rospy.loginfo("approaching roundabout")

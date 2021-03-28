@@ -117,7 +117,6 @@ class TrafficFeatures:
                             lane_with_min_distance = inner_lane
             else:
                 next_lanelet_msg.isInIntersection = True
-                distance = self.lanelet_lengths[current_lanelet_id][-1] - self.lanelet_lengths[current_lanelet_id][idx]
                 if lane.adj_left_same_direction:
                     ls.isMultiLane = True
                     ls.leftLaneId = lane.adj_left
@@ -125,16 +124,18 @@ class TrafficFeatures:
                     ls.isMultiLane = True
                     ls.rightLaneId = lane.adj_right
         if min_distance_to_outer < 30:
-            # rospy.loginfo("On Lanelet to RoundAbout")
             roundabout_msg = NextLanelet()
             roundabout_msg.isRoundabout = True
-
-            point_with_min_distance = self.get_entry_point_of_roundabout(lane_with_min_distance, self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id))
-            
+            point_with_min_distance = self.get_entry_point_of_roundabout(lane_with_min_distance, self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet_id))            
             roundabout_msg.entry_point = Point(point_with_min_distance[0], point_with_min_distance[1], 0)
-            # rospy.loginfo("pub roundaboutmsg ")
             self.roundabout_pub.publish(roundabout_msg)
-            # self.distance_pub.publish(np.inf)
+            if lane.adj_left_same_direction:
+                    ls.isMultiLane = True
+                    ls.leftLaneId = lane.adj_left
+            if lane.adj_right_same_direction:
+                ls.isMultiLane = True
+                ls.rightLaneId = lane.adj_right
+            self.lane_status_pub.publish(ls)
         else:
             self.distance_pub.publish(next_lanelet_msg)
             self.lane_status_pub.publish(ls)
