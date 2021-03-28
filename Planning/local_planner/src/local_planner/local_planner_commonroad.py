@@ -96,6 +96,8 @@ class LocalPlanner:
         approach_intersection = req.approach_intersection
         leave_intersection = req.leave_intersection
         path = []
+        lane_id = -1
+        next_lanelet_id = -1
         # get all possible lanelet ids of current position.
         # In a intersection it is possible that you get more than one lanelet.
         possible_lanelet_ids = self.scenario.lanelet_network.find_lanelet_by_position([np.array(list(self.current_pos))])[0]
@@ -120,7 +122,7 @@ class LocalPlanner:
                             self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
                     except IndexError:
                         rospy.loginfo("Local Planner Intersection Approaching: No successor found")
-                        return
+                        break
                     if next_lanelet.predecessor[0] == lane_id:  # no lane change
                         rospy.loginfo("Keep Lane")
                         path.extend(current_lanelet.center_vertices[idx_nearest_point:])
@@ -143,13 +145,29 @@ class LocalPlanner:
                 else:
                     path.extend(current_lanelet.center_vertices[idx_nearest_point:])
 
-        # extend with global path as fallback
-        last_pos_on_local_path = path[-1]
-        idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
-        try:
-            path.extend(self.global_path[idx_closest_point_on_global_path:])
-        except IndexError:
-            pass
+        # extend with global path as fallback, use global path to approach target position
+        if self.global_path.size != 0:
+            if path:
+                last_pos_on_local_path = path[-1]
+            else:
+                last_pos_on_local_path = np.array(self.current_pos)
+            rospy.loginfo(last_pos_on_local_path.shape)
+            rospy.loginfo(self.global_path.shape)
+            idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
+            if lane_id in self.adjacent_lanelets[-1]:  # we are on last road section
+                path = self.global_path[idx_closest_point_on_global_path:]
+                rospy.loginfo("Local Path == Global Path")
+            elif next_lanelet_id in self.adjacent_lanelets[-1]:  # next id is in last road section
+                path = path[:-len(next_lanelet.center_vertices)]
+                last_pos_on_local_path = path[-1]
+                idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
+                path.extend(self.global_path[idx_closest_point_on_global_path:])
+                rospy.loginfo("Next is last. Extend with global path")
+            else:
+                try:
+                    path.extend(self.global_path[idx_closest_point_on_global_path:])
+                except IndexError:
+                    pass
 
         # create ros path message
         path = np.array(path)

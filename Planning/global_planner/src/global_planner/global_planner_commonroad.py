@@ -42,7 +42,7 @@ class GlobalPlanner:
         self.current_orientation = None
         self.intersection_lanelet_ids = None
         self.with_rules = True
-        self.target_pos = (10, 50)
+        self.target_pos = (92, -160)
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -168,7 +168,7 @@ class GlobalPlanner:
             return False
 
         # get information from param server
-        self.target_pos = (rospy.get_param('/competition/goal/position/x', 10), rospy.get_param('/competition/goal/position/y', 50))
+        self.target_pos = (rospy.get_param('/competition/goal/position/x', self.target_pos[0]), rospy.get_param('/competition/goal/position/y', self.target_pos[1]))
         self.with_rules = rospy.get_param('/competition/traffic_rules', True)
         rospy.loginfo(f"Compute new route from: {self.current_pos} to {self.target_pos}."
                       f" Rules: {'On' if self.with_rules else 'Off'}")

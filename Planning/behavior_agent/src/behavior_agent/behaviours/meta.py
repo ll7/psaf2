@@ -24,15 +24,15 @@ class Start(py_trees.behaviour.Behaviour):
         return True
 
     def update(self):
-        success_global_path = self.update_global_path()
+        success_global_path = self.update_global_path().Success
         if success_global_path:
             bb_dist = self.blackboard.get("/psaf/ego_vehicle/next_lanelet")
             if bb_dist is not None:
                 is_next_intersection = bb_dist.isInIntersection
                 if is_next_intersection:
-                    success_local_path = self.update_local_path()
+                    success_local_path = self.update_local_path().Success
                 else:
-                    success_local_path = self.update_local_path(leave_intersection=True)
+                    success_local_path = self.update_local_path(leave_intersection=True).Success
                 if success_local_path:
                     rospy.loginfo("Everything is fine. We can start now!")
                     self.target_speed_pub.publish(50.0)
@@ -61,11 +61,11 @@ class End(py_trees.behaviour.Behaviour):
         if odo is None:
             return py_trees.common.Status.FAILURE
         current_pos = np.array([odo.pose.pose.position.x, odo.pose.pose.position.y])
-        target_pos = np.array([rospy.get_param('/competition/goal/position/x', 10),
-                               rospy.get_param('/competition/goal/position/y', 50)])
+        target_pos = np.array([rospy.get_param('/competition/goal/position/x', 92),
+                               rospy.get_param('/competition/goal/position/y', -160)])
         dist = np.linalg.norm(current_pos - target_pos)
-        if dist < 5:
-            return py_trees.common.Status.SUCCESS
+        if dist < 15:
+            return py_trees.common.Status.RUNNING
         else:
             return py_trees.common.Status.FAILURE
 
@@ -140,10 +140,10 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
         if odo is None:
             return py_trees.common.Status.FAILURE
         current_pos = np.array([odo.pose.pose.position.x, odo.pose.pose.position.y])
-        target_pos = np.array([rospy.get_param('/competition/goal/position/x', 10),
-                               rospy.get_param('/competition/goal/position/y', 50)])
+        target_pos = np.array([rospy.get_param('/competition/goal/position/x', 92),
+                               rospy.get_param('/competition/goal/position/y', -160)])
         dist = np.linalg.norm(current_pos - target_pos)
-        if dist < 5:
+        if dist < 3:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
