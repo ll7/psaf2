@@ -90,9 +90,9 @@ class LocalPlanner:
         path.extend(adj_lane.center_vertices[idx_nearest_point + 30:])
         return path
 
-    # Python program to illustrate the intersection 
-    # of two lists using set() method 
-    def intersection(self, lst1, lst2): 
+    # Python program to illustrate the intersection
+    # of two lists using set() method
+    def intersection(self, lst1, lst2):
         return list(set(lst1) & set(lst2))
 
     def intersection_index_of_two_center_vertices(self, lane_one, lane_two):
@@ -114,7 +114,7 @@ class LocalPlanner:
             current_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(current_lanelet.adj_right)
         else:
             path.extend(current_lanelet.center_vertices[idx_nearest_point:])
-        
+
         #über globalen Pfad den Ausgang finden
         if self.lanelets_roundabout_outgoing is not None:
             outgoing_lanes = (self.intersection(list(self.lanelets_roundabout_outgoing), list(self.lanelets_path_ids)))
@@ -132,15 +132,15 @@ class LocalPlanner:
                 if len(distances_to_right_vertices) > 0:
                     if len(distances_to_outer_circle) > 0:
                         if np.min(distances_to_right_vertices) < np.min(distances_to_outer_circle):
-                            idx_nearest_point = np.argmin(distances_to_right_vertices) 
-                            closest_lanelet_on_outer_circle = outer_lane                                            
+                            idx_nearest_point = np.argmin(distances_to_right_vertices)
+                            closest_lanelet_on_outer_circle = outer_lane
                     else:
-                        idx_nearest_point = np.argmin(distances_to_right_vertices) 
-                        closest_lanelet_on_outer_circle = outer_lane 
-                    distances_to_outer_circle.append(np.min(distances_to_right_vertices))  
+                        idx_nearest_point = np.argmin(distances_to_right_vertices)
+                        closest_lanelet_on_outer_circle = outer_lane
+                    distances_to_outer_circle.append(np.min(distances_to_right_vertices))
             if len(distances_to_outer_circle) > 0:
                 if np.min(distances_to_outer_circle) < 30:
-                    if closest_lanelet_on_outer_circle is not None:                                    
+                    if closest_lanelet_on_outer_circle is not None:
                         #Schnittpunkt Kreisverkehrspur und aktuelle spur finden
                         minimum, idx_minimum_one, idx_minimum_two = self.intersection_index_of_two_center_vertices(closest_lanelet_on_outer_circle, current_lanelet)
                         if minimum > 2:
@@ -150,7 +150,7 @@ class LocalPlanner:
                                 path.extend(successor.center_vertices)
                                 minimim_succesor, idx_minimum_succesor, idx_minimum_closest = self.intersection_index_of_two_center_vertices(successor, closest_lanelet_on_outer_circle)
                                 path = path[:-(len(successor.center_vertices) - idx_minimum_succesor + 2)]
-                                path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest + 2:])                                        
+                                path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_closest + 2:])
                         else:
                             path = path[:-(len(current_lanelet.center_vertices) - idx_minimum_two + 2)]
                             path.extend(closest_lanelet_on_outer_circle.center_vertices[idx_minimum_one + 2:])
@@ -160,7 +160,7 @@ class LocalPlanner:
                         #solange successor suchen, bis abstand zu outgoing < 4
                         #außen im Kreisverkehr bis Ausgang fahren
                         while closest_lanelet_on_outer_circle is not None:
-                            #berechnet minimale Distanz zwischen zwei lanelets und die Indizes zu den Lanlets, an welchen die minimale Distanz ist                                        
+                            #berechnet minimale Distanz zwischen zwei lanelets und die Indizes zu den Lanlets, an welchen die minimale Distanz ist
                             minimum, idx_minimum_outgoing, idx_minimum_closest_lanelet = self.intersection_index_of_two_center_vertices(outgoing_lane, closest_lanelet_on_outer_circle)
                             #vergleichen mit closest_lanelet_on_outer_circle.center_vertices
                             distances_to_outgoing_center_vertices = [np.linalg.norm(outgoing_lane.center_vertices - p, axis=1) for p in closest_lanelet_on_outer_circle.center_vertices]
@@ -169,11 +169,11 @@ class LocalPlanner:
                                     less_steps = (len(closest_lanelet_on_outer_circle.center_vertices) - idx_minimum_closest_lanelet)
                                     if len(path) > less_steps + 3:
                                         path = path[:-(less_steps + 3)]
-                                    else: 
-                                        path = path[:-less_steps]                                               
+                                    else:
+                                        path = path[:-less_steps]
                                     if len(outgoing_lane.center_vertices) > idx_minimum_outgoing + 3:
                                         path.extend(outgoing_lane.center_vertices[(idx_minimum_outgoing + 3):])
-                                    else: 
+                                    else:
                                         path.extend(outgoing_lane.center_vertices[idx_minimum_outgoing:])
                                     closest_lanelet_on_outer_circle = None
                                     self.roundabout_exit_pub.publish(Point(outgoing_lane.center_vertices[-1][0], outgoing_lane.center_vertices[-1][1], 0))
@@ -196,7 +196,7 @@ class LocalPlanner:
         approach_intersection: Plan a path for the approach and the behaviour in a intersection. Changes to the correct
          lane for a turn if necessary
         leave_intersection: Plan a path to leave the intersection and drive straight in the next lanelet.
-        approach roundabout:  
+        approach roundabout:
         change_lane_left: Plan a path for a left lane change.
         change_lane_right: Plan a path for a right lane change.
         :param req: ROS srv message.
@@ -205,16 +205,17 @@ class LocalPlanner:
         # resolve ros srv message
         change_lane_left = req.change_lane_left
         change_lane_right = req.change_lane_right
-        
 
         approach_roundabout = req.approach_roundabout
         approach_intersection = req.approach_intersection
         leave_intersection = req.leave_intersection
         path = []
+        lane_id = -1
+        next_lanelet_id = -1
         # get all possible lanelet ids of current position.
         # In a intersection it is possible that you get more than one lanelet.
         if self.scenario is None:
-            return
+            return False
         possible_lanelet_ids = self.scenario.lanelet_network.find_lanelet_by_position([np.array(list(self.current_pos))])[0]
         # Use the first lanelet that is also on the previously calculated global path.
         for lane_id in possible_lanelet_ids:
@@ -229,7 +230,7 @@ class LocalPlanner:
                     path.extend(self._change_lane(current_lanelet, idx_nearest_point, right=True))
                 elif approach_roundabout:
                     rospy.loginfo("Approach Roundabout")
-                    path = self.calculate_route_through_roundabout(current_lanelet, idx_nearest_point)                         
+                    path = self.calculate_route_through_roundabout(current_lanelet, idx_nearest_point)
                 elif approach_intersection:
                     rospy.loginfo("Approach Intersection")
                     for idx, sector in enumerate(self.adjacent_lanelets):  # find lane_id to get successor
@@ -240,7 +241,7 @@ class LocalPlanner:
                             self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
                     except IndexError:
                         rospy.loginfo("Local Planner Intersection Approaching: No successor found")
-                        return True
+                        break
                     if next_lanelet.predecessor[0] == lane_id:  # no lane change
                         rospy.loginfo("Keep Lane")
                         path.extend(current_lanelet.center_vertices[idx_nearest_point:])
@@ -263,13 +264,27 @@ class LocalPlanner:
                 else:
                     path.extend(current_lanelet.center_vertices[idx_nearest_point:])
 
-        # extend with global path as fallback
-        last_pos_on_local_path = path[-1]
-        idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
-        try:
-            path.extend(self.global_path[idx_closest_point_on_global_path:])
-        except IndexError:
-            pass
+        # extend with global path as fallback, use global path to approach target position
+        if self.global_path.size != 0:
+            if path:
+                last_pos_on_local_path = path[-1]
+            else:
+                last_pos_on_local_path = np.array(self.current_pos)
+            idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
+            if lane_id in self.adjacent_lanelets[-1]:  # we are on last road section
+                path = self.global_path[idx_closest_point_on_global_path:]
+                rospy.loginfo("On last lanelet: Use global path")
+            elif next_lanelet_id in self.adjacent_lanelets[-1]:  # next id is in last road section
+                path = path[:-len(next_lanelet.center_vertices)]
+                last_pos_on_local_path = path[-1]
+                idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
+                path.extend(self.global_path[idx_closest_point_on_global_path:])
+                rospy.loginfo("Next is last. Extend with global path")
+            else:
+                try:
+                    path.extend(self.global_path[idx_closest_point_on_global_path:])
+                except IndexError:
+                    pass
 
         # create ros path message
         path = np.array(path)

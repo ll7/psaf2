@@ -90,7 +90,6 @@ class TrafficFeatures:
         if lane is None:
             next_lanelet_msg.distance = np.inf
             next_lanelet_msg.isInIntersection = False
-            distance = 0
         else:
             # get distance to next lanelet
             distances_to_center_vertices = np.linalg.norm(lane.center_vertices - self.current_pos, axis=1)
@@ -98,23 +97,16 @@ class TrafficFeatures:
             next_lanelet_msg.distance = self.lanelet_lengths[current_lanelet_id][-1] - self.lanelet_lengths[current_lanelet_id][idx]
             # check if next lanelet is in an intersection
             if current_lanelet_id in self.intersection_lanelet_ids or current_lanelet_id in self.lanelet_ids_roundabout_inside:
-                distance = np.inf
                 next_lanelet_msg.isInIntersection = False
-            elif self.lanelet_ids_roundabout_incoming is not None:
-                # next_lanelet_msg.isRoundabout = True
-                distance = np.inf
-                if current_lanelet_id in self.lanelet_ids_roundabout_incoming:
-                    # rospy.loginfo("current_lanelet_id is in incoming_roundabout_lanes")
-                    point_with_min_distance = None
-                    lane_with_min_distance = None
-                    for inner_lanelet_id in self.lanelet_ids_roundabout_inside_outer_circle:
-                        inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
-                        distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)
-                        _min = np.min(distances_to_right_vertices)
-                        if _min < min_distance_to_outer:
-                            min_distance_to_outer = _min
-                            point_with_min_distance = inner_lane.right_vertices[np.argmin(distances_to_right_vertices)]
-                            lane_with_min_distance = inner_lane
+            elif self.lanelet_ids_roundabout_incoming is not None and current_lanelet_id in self.lanelet_ids_roundabout_incoming:
+                lane_with_min_distance = None
+                for inner_lanelet_id in self.lanelet_ids_roundabout_inside_outer_circle:
+                    inner_lane = self.scenario.lanelet_network.find_lanelet_by_id(inner_lanelet_id)
+                    distances_to_right_vertices = np.linalg.norm(inner_lane.right_vertices - self.current_pos, axis=1)
+                    _min = np.min(distances_to_right_vertices)
+                    if _min < min_distance_to_outer:
+                        min_distance_to_outer = _min
+                        lane_with_min_distance = inner_lane
             else:
                 next_lanelet_msg.isInIntersection = True
                 # check for left/right lane
@@ -131,8 +123,8 @@ class TrafficFeatures:
             roundabout_msg.entry_point = Point(point_with_min_distance[0], point_with_min_distance[1], 0)
             self.roundabout_pub.publish(roundabout_msg)
             if lane.adj_left_same_direction:
-                    ls.isMultiLane = True
-                    ls.leftLaneId = lane.adj_left
+                ls.isMultiLane = True
+                ls.leftLaneId = lane.adj_left
             if lane.adj_right_same_direction:
                 ls.isMultiLane = True
                 ls.rightLaneId = lane.adj_right
