@@ -237,17 +237,17 @@ class StreetObjectDetector:
         custom_config = r'--oem 3 --psm 6 outputbase digits'
         gray = cv2.cvtColor(street_sign_rgb, cv2.COLOR_BGR2GRAY)
 
-        if resize_to != 0:
-            resize_factor = resize_to / gray.shape[1]
-            new_width = int(gray.shape[1] * resize_factor)
-            new_height = int(gray.shape[0] * resize_factor)
-            gray = cv2.resize(gray, (new_width, new_height))
+        # if resize_to != 0:
+        #     resize_factor = resize_to / gray.shape[1]
+        #     new_width = int(gray.shape[1] * resize_factor)
+        #     new_height = int(gray.shape[0] * resize_factor)
+        #     gray = cv2.resize(gray, (new_width, new_height))
 
-        if "b" in preprocess_tasks:
-            gray = cv2.medianBlur(gray, 3)  # apply blurring
-        if "t" in preprocess_tasks:
-            gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11,
-                                         1)  # apply thresholding
+        # if "b" in preprocess_tasks:
+        #     gray = cv2.medianBlur(gray, 3)  # apply blurring
+        # if "t" in preprocess_tasks:
+        #     gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11,
+        #                                  1)  # apply thresholding
 
         text = pytesseract.image_to_string(gray, config=custom_config)
         rospy.loginfo(text)
