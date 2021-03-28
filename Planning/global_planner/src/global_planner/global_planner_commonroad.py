@@ -4,22 +4,22 @@ import math
 import json
 
 from commonroad.common.file_reader import CommonRoadFileReader
-from helper_functions import calc_egocar_yaw
-from SMP.route_planner.route_planner.route_planner import RoutePlanner
 from commonroad.planning.goal import GoalRegion
 from commonroad.scenario.trajectory import State
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.common.util import AngleInterval
 from commonroad.geometry.shape import Rectangle
 from commonroad.visualization.plot_helper import *
+from SMP.route_planner.route_planner.route_planner import RoutePlanner
+
+from helper_functions import calc_egocar_yaw
+from tf.transformations import euler_from_quaternion
 
 from carla_msgs.msg import CarlaWorldInfo
-from geometry_msgs.msg import Point, PoseWithCovarianceStamped
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from custom_carla_msgs.msg import GlobalPathLanelets
-from tf.transformations import euler_from_quaternion
 from custom_carla_msgs.srv import UpdateGlobalPath
 
 PLOT_CROSSING = False
@@ -70,7 +70,8 @@ class GlobalPlanner:
 
     def publish_intersection_lanelet_ids(self):
         """
-        Collect special lanelet ids
+        Collect special lanelet ids that are in an intersection. Those lanelets are needed to determine the behaviour
+        of the local path planner.
         :return:
         """
         def plot_map(intersections, plot_labels=True):
@@ -257,7 +258,11 @@ class GlobalPlanner:
         return True
 
     def sanitize_route(self, route):
-        # delete unnecessary points at begin and end of route
+        """
+        Delete unnecessary points at begin and end of route
+        :param route: route as list of points
+        :return:
+        """
         max_index = -1
         min_index = -1
         min_distance_start = None

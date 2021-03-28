@@ -1,26 +1,29 @@
 ## About
 
-Reads opendrive map string from /carla/WorldInfo, converts to openstreetmap, from that to lanelet2 and saves as binary.
-The path to the binary is then published in /psaf/LaneletMap.
+Reads opendrive map string from /carla/WorldInfo, converts it to a commonorad map and saves it as a .xml file.
+The path to this converted map is then published. The default path to the file is ~/.ros/commonroad_map.xml.
 
-## How to get lanelet map object?
-```python
-import rospy
-import lanelet2
-from custom_carla_msgs.msg import LaneletMap
+## Topics
+Subscribes to
+```
+Topic                                   Message Type
+/carla/world_info                       carla_msgs/CarlaWorldInfo.msg
+```
 
-# ...
-# subscribe to topic
-self.sub = rospy.Subscriber("/psaf/lanelet_map", LaneletMap, self.callback)
-
-# ...
-def callback(self, lanelet_msg):
-    lanelet_map = lanelet2.io.load(lanelet_msg.lanelet_bin_path)
-
+Publishes to
+```
+Topic                                   Message Type
+/psaf/ego_vehicle/commonroad_map        std_msgs/String.msg
 ```
 
 ## How to launch this node?
+If you just want to create a commonroad map of the current opendrive map you can use:
 ```shell
-roslaunch lanelet-map-provider lanelet-map-provider-example.launch
+roslaunch commonroad_map_provider commonroad_map_provider_example.launch
 ```
 
+
+## Authors
+Julius Brandl
+
+Lukas Hartmann

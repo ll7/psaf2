@@ -1,8 +1,0 @@
-<!-- -->
-<launch>
-
-  <node pkg="global_planner" type="target_publisher.py" name="target_publisher" output="screen">
-  </node>
-
-</launch>
-
