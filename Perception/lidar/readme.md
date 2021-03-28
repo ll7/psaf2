@@ -1,5 +1,9 @@
 ## About
-This node uses the Lidar-Sensor to compute to cars driving on the left and right lane. It  provides the information if there is the lane on the right and left is free to the [Behaviour-Node](https://github.com/ll7/psaf2/tree/main/Planning/behavior_agent) via a topic. In addition it provides a ROS-Service to compute whether a given lane (by id) is empty by using the lidar-sensor data.  
+This node uses the Lidar-Sensor to compute distance to cars driving on the left and right lane. 
+It  provides information if right and left are free for a
+[Behaviour-Node](https://github.com/ll7/psaf2/tree/main/Planning/behavior_agent) via a 
+topic. In addition it provides a ROS-Service to compute whether a given lane (by id) is 
+empty by using the lidar-sensor data.  
 
 To compute the distance all points provided by the Lidar-Sensor are first transformed into map coordinates. Than they are filtered according to their distance to the respective lane. From the filtered Point-Cloud we check if there are any points left. If we still have some points, there is an object on the lane.
     
