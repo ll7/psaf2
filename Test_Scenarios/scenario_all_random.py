@@ -150,7 +150,8 @@ def main():
         number_of_spawn_points = len(spawn_points)
 
         if args.number_of_vehicles < number_of_spawn_points:
-            random.shuffle(spawn_points)
+            # random.shuffle(spawn_points)
+            print("no shuffle ")
         elif args.number_of_vehicles > number_of_spawn_points:
             msg = 'requested %d vehicles, but could only find %d spawn points'
             logging.warning(msg, args.number_of_vehicles, number_of_spawn_points)
@@ -165,13 +166,13 @@ def main():
         # --------------
         # Write Spawn_points in csv
         # --------------
-        #print('spawn_points %d .' % (len(spawn_points)))
-        #with open('scenario_1.csv', 'w', newline='') as scenario_1_file:
-        #    writer = csv.writer(scenario_1_file)
-        #    writer.writerow(["x", "y", "z", "pitch", "yaw", "roll"])
-        #    for transform in spawn_points:
-        #        writer.writerow([transform.location.x, transform.location.y, transform.location.z, transform.rotation.pitch, transform.rotation.yaw, transform.rotation.roll])
-        #        #writer.writerow([transform[0], transform[1], transform[2], transform[3]])     
+        print('spawn_points %d .' % (len(spawn_points)))
+        with open('town01_spawn_points.csv', 'w', newline='') as scenario_1_file:
+           writer = csv.writer(scenario_1_file)
+           writer.writerow(["x", "y", "z", "pitch", "yaw", "roll"])
+           for transform in spawn_points:
+               writer.writerow([transform.location.x, transform.location.y, transform.location.z, transform.rotation.pitch, transform.rotation.yaw, transform.rotation.roll])
+               #writer.writerow([transform[0], transform[1], transform[2], transform[3]])     
 
         # --------------
         # Spawn vehicles
@@ -204,9 +205,9 @@ def main():
             #        #.then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
             #        .then(SetVehicleLightState(FutureActor, light_state)))
             #else:
-            batch.append(SpawnActor(blueprint, transform)
-                .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
-                .then(SetVehicleLightState(FutureActor, light_state)))    
+            # batch.append(SpawnActor(blueprint, transform)
+            #     .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
+            #     .then(SetVehicleLightState(FutureActor, light_state)))    
             
 
         for response in client.apply_batch_sync(batch, synchronous_master):
