@@ -5,10 +5,10 @@ competition:
       y: -33.57
       z: 0.0
     orientation:
-      x: 0.0
-      y: 0.0
-      z: 0.0
-      w: 0.0
+      x: 0.19
+      y: -0.14
+      z: 0.78
+      w: 0.58
   goal:
     position:
       x: -114.78

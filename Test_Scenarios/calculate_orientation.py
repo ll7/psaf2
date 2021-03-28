@@ -10,8 +10,8 @@ import tf
 # from tf_conversions.transformations import quaternion_from_euler
 
 def main():
-    pitch = 0.0
-    yaw = 180.0
+    pitch = 0.20
+    yaw = -180.0
     roll = 0.0
 
     q = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
