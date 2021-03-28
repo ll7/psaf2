@@ -167,7 +167,7 @@ def main():
         # Write Spawn_points in csv
         # --------------
         print('spawn_points %d .' % (len(spawn_points)))
-        with open('town01_spawn_points.csv', 'w', newline='') as scenario_1_file:
+        with open('town05_spawn_points.csv', 'w', newline='') as scenario_1_file:
            writer = csv.writer(scenario_1_file)
            writer.writerow(["x", "y", "z", "pitch", "yaw", "roll"])
            for transform in spawn_points:
