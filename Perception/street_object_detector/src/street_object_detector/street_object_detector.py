@@ -9,7 +9,7 @@ from traceback import print_exc
 from cv_bridge import CvBridge, CvBridgeError
 
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64
 from carla_msgs.msg import CarlaWorldInfo
 from custom_carla_msgs.msg import TrafficLight
 import pytesseract
@@ -20,6 +20,24 @@ class StreetObjectDetector:
         self.bridge = CvBridge()
         self.sem_seg_height_width = (300, 400)
 
+        # OCR settings
+        self.ocr_tesseract_configs = [ "--psm 4 --oem 1", "--psm 6 --oem 1", "--psm 9 --oem 1", "--psm 11 --oem 1", "--psm 13 --oem 1" ]
+
+        # some letters are not detected correctly by tesseract, so replace them accordingly
+        self.speed_limit_replacements = [
+                                    [ '$', '9' ],
+                                    [ '(', '' ],
+                                    [ ')', '' ],
+                                    [ 'O', '0' ],
+                                    [ 'o', '0' ],
+                                    [ 'q', '9' ],
+                                    [ 'Q', '9' ],
+                                    [ '{', '' ],
+                                    [ '}', '' ],
+                                    [ '8', '9' ]
+                                ]
+        self.speed_limit_values = [ '30', '60', '90' ]
+        
         self.rgb_img = None
         self._semantic_segmentation_front_image_subscriber = rospy.Subscriber(
             "/carla/{}/camera/semantic_segmentation/front/image_segmentation".format(role_name), Image, self.semantic_segmentation_image_updated)
@@ -34,6 +52,9 @@ class StreetObjectDetector:
 
         self.traffic_light_publisher = rospy.Publisher(
             "/psaf/{}/traffic_light".format(self.role_name), TrafficLight, queue_size=1, latch=True)
+
+        self.target_speed_publisher = rospy.Publisher(
+            "/psaf/{}/target_speed".format(self.role_name), Float64, queue_size=1, latch=True)
 
         self.roadmark_publisher = rospy.Publisher("/psaf/{}/traffic_light_img".format(role_name), Image, queue_size=1)
 
@@ -131,7 +152,23 @@ class StreetObjectDetector:
 
                 rgb_mask = cv2.resize(rgb_mask, (800, 600))  # upscale mask to fit for rgb image
                 rgb_img = cv2.bitwise_and(rgb_img, rgb_img, mask=rgb_mask)  # get rgb image
-                self.get_ocr_text(rgb_img)
+
+                ocr_texts = []
+                # execute all defined tesseract configurations and yield their returned values
+                for tesseract_config in self.ocr_tesseract_configs:
+                    ocr_texts.append(self.get_ocr_text(rgb_img, tesseract_config, self.speed_limit_replacements))
+
+                recognized_speed_limit = None
+                for ocr_text in ocr_texts:
+                    # cut out non-digit characters
+                    recognized_number = ''.join([ i for i in ocr_text.split() if i.isdigit() ])
+
+                    # search for valid values and apply the minimum speed limit
+                    if recognized_number in self.speed_limit_values and (recognized_speed_limit is None or int(recognized_number) < int(recognized_speed_limit)):
+                        recognized_speed_limit = recognized_number
+
+                if recognized_speed_limit != None:
+                    self.target_speed_publisher.publish(float(recognized_speed_limit))
                 try:
                     im = self.bridge.cv2_to_imgmsg(rgb_img)
                     self.roadmark_publisher.publish(im)
@@ -186,7 +223,7 @@ class StreetObjectDetector:
         # except CvBridgeError as e:
         #     print(e)
 
-    def get_ocr_text(self, street_sign_rgb):#, tesseract_config, preprocess_tasks, resize_to, replacement_rules):
+    def get_ocr_text(self, street_sign_rgb, tesseract_config, replacement_rules):#, tesseract_config, preprocess_tasks, resize_to, replacement_rules):
         """
         Extracts text from a given image by calling pytesseract.
 
