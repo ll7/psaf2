@@ -11,6 +11,10 @@ given by the global path for easier overtaking. The local planner is also respon
 necessary before entering an intersection. The local planner is responsible to plan lane changes, intersection and roundabout behaviour but
 it only takes static obstacles into account. The goal is to follow the main path while using the best possible lane.
 
+Planning for the roundabout works as follows: Before the roundabout a switch to the right-most lane is done (if 
+necceesary) and the distance to the outer circle is computed so car can stop at roundabout entry. From there on
+the path on the outer ring through the roundabout is planned.
+
 The generated local path is then published to /psaf/ego_vehicle/localPath.
 
 ## Topics
@@ -26,6 +30,9 @@ Publishes to
 ```
 Topic                                       Message Type
 /psaf/ego_vehicle/local_path              nav_msgs/Path.msg
+/psaf/ego_vehicle/first_lanelet_roundabout  std_msgs/Int32.msg
+/psaf/ego_vehicle/distance_next_roundabout  custom_carla_msgs/NextLanelet.msg
+/psaf/ego_vehicle/distance_exit_roundabout  geometry_msgs/Point.msg
 ```
 
 ## How to call the service from shell?
