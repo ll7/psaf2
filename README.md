@@ -72,8 +72,20 @@ cd psaf2
 If you need more information about the installation process or if you don't trust our installation script check out our wiki entry:
 https://github.com/ll7/psaf2/wiki/Installation
 
+# Usage/Tips
+Author: Valentin Höpfner
+
 ## How to launch the ego vehicle?
 ```shell
 roslaunch ego_vehicle ego_vehicle.launch
 ```
-Packages werden mit "_" benannt.
+## How to edit settings?
+Just edit:
+```shell
+ego_vehicle ego_vehicle.launch
+```
+This could - for example - be the map or the ego_vehicle used. Description of the sensor array is also contained in the ego_vehicle package.
+If you are looking for a place to put your launchfiles this is also the place.
+## Setting target or spawn point
+This is supposed to be done with the [PSAF20 - Competition Manager](https://github.com/ll7/psaf20/tree/main/psaf20_competition_manager). You can also respawn the ego vehicle from RVIZ. Note that respawning will trigger replanning the global plan as well as cancelling all the actions the ego_vehicle is currently taking.
+
