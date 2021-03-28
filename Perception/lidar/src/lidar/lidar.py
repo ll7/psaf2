@@ -145,6 +145,8 @@ class Lidar(object):
                             self.obstacle_on_left_lane_pub.publish(dist) 
                         else:
                             self.obstacle_on_left_lane_pub.publish(np.inf)
+                    else:
+                        self.obstacle_on_right_lane_pub.publish(np.inf) 
                 
         if self.right_lanelet is not None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
@@ -176,7 +178,9 @@ class Lidar(object):
                             # rospy.loginfo(f"dist to obstacle on left lane = {dist}")            
                             self.obstacle_on_right_lane_pub.publish(dist) 
                         else:
-                            self.obstacle_on_right_lane_pub.publish(np.inf)          
+                            self.obstacle_on_right_lane_pub.publish(np.inf)    
+                    else:
+                        self.obstacle_on_right_lane_pub.publish(np.inf)      
        
     def filter_lidar_poses(self, lanelet, transformed_lidar_poses):
         points = []                

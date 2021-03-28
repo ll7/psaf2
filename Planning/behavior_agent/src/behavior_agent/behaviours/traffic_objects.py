@@ -43,7 +43,7 @@ class WaitLeftLaneFree(py_trees.behaviour.Behaviour):
         if self.car_left is None:
             return py_trees.common.Status.SUCCESS
         elif  self.car_left.data is None or self.car_left.data > 20 :
-            return py_trees.common.Status.FAILURE
+            return py_trees.common.Status.SUCCESS
         elif (self.timer + 2) < rospy.get_time():
             return py_trees.common.Status.RUNNING 
         else:
@@ -69,7 +69,7 @@ class WaitRightLaneFree(py_trees.behaviour.Behaviour):
         if self.car_right is None:
             return py_trees.common.Status.SUCCESS
         elif self.car_right.data is None or self.car_right.data > 20:
-            return py_trees.common.Status.FAILURE
+            return py_trees.common.Status.SUCCESS
         elif (self.timer + 2) < rospy.get_time():
             return py_trees.common.Status.RUNNING 
         else:

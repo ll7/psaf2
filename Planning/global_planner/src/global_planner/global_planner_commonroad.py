@@ -42,7 +42,7 @@ class GlobalPlanner:
         self.current_orientation = None
         self.intersection_lanelet_ids = None
         self.with_rules = True
-        self.target_pos = (293, -2)
+        self.target_pos = (60, -194)
         self.map_number = None
 
     def map_received(self, msg):
