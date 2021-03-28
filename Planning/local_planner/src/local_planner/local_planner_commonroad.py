@@ -18,6 +18,7 @@ class LocalPlanner:
         self.role_name = role_name
         self.current_pos = np.zeros(shape=2)
         self.scenario = None
+        self.global_path = None
 
         # adjacent_lanelets = [[1], [2, 3], [4, 5], [6]] 2D-List that creates the global path. If more than one element
         # exists in a sub-list it means that there is a adjacent lane. A possible path would be: 1,2,4,6 or 1,3,4,6
@@ -28,6 +29,7 @@ class LocalPlanner:
         self.map_sub = rospy.Subscriber(f"/psaf/{self.role_name}/commonroad_map", String, self.map_received)
         self.odometry_sub = rospy.Subscriber(f"carla/{self.role_name}/odometry", Odometry, self.odometry_received)
         self.lanelet_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets, self.lanelets_received)
+        self.global_path_sub = rospy.Subscriber(f"/psaf/{self.role_name}/global_path", Path, self.global_path_received)
 
         # add ros publishers
         self.local_path_pub = rospy.Publisher(f"/psaf/{self.role_name}/local_path", Path, queue_size=1, latch=True)
@@ -43,6 +45,12 @@ class LocalPlanner:
 
     def odometry_received(self, msg):
         self.current_pos = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
+
+    def global_path_received(self, msg):
+        self.global_path = []
+        for pose in msg.poses:
+            self.global_path.append((pose.pose.position.x, pose.pose.position.y))
+        self.global_path = np.array(self.global_path)
 
     def _change_lane(self, current_lanelet, idx_nearest_point, left=False, right=False):
         """
@@ -134,6 +142,14 @@ class LocalPlanner:
                             break
                 else:
                     path.extend(current_lanelet.center_vertices[idx_nearest_point:])
+
+        # extend with global path as fallback
+        last_pos_on_local_path = path[-1]
+        idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
+        try:
+            path.extend(self.global_path[idx_closest_point_on_global_path:])
+        except IndexError:
+            pass
 
         # create ros path message
         path = np.array(path)
