@@ -270,12 +270,10 @@ class LocalPlanner:
                 last_pos_on_local_path = path[-1]
             else:
                 last_pos_on_local_path = np.array(self.current_pos)
-            rospy.loginfo(last_pos_on_local_path.shape)
-            rospy.loginfo(self.global_path.shape)
             idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
             if lane_id in self.adjacent_lanelets[-1]:  # we are on last road section
                 path = self.global_path[idx_closest_point_on_global_path:]
-                rospy.loginfo("Local Path == Global Path")
+                rospy.loginfo("On last lanelet: Use global path")
             elif next_lanelet_id in self.adjacent_lanelets[-1]:  # next id is in last road section
                 path = path[:-len(next_lanelet.center_vertices)]
                 last_pos_on_local_path = path[-1]
