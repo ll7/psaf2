@@ -21,6 +21,7 @@ class Start(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
+        rospy.loginfo("Starting startup sequence!")
         self.target_speed_pub.publish(0.0)
         return True
 
@@ -69,7 +70,7 @@ class End(py_trees.behaviour.Behaviour):
                                rospy.get_param('/competition/goal/position/y', 50)])
         dist = np.linalg.norm(current_pos - target_pos)
         if dist < 15:
-            return py_trees.common.Status.SUCCESS
+            return py_trees.common.Status.RUNNING
         else:
             return py_trees.common.Status.FAILURE
 
@@ -119,7 +120,7 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
         # check for change on topic initialpose (for respawn rviz)
         init_pose = self.blackboard.get("/initialpose")
         if init_pose is not None:
-            if self.last_init_pose is not None and init_pose != self.last_init_pose:
+            if init_pose != self.last_init_pose:
                 self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
                 self.target_speed_pub.publish(0.0)
                 rospy.loginfo(f"New spawn at {init_pose.pose.pose}")
@@ -131,7 +132,7 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
         # check for change on topic carla/ego_vehicle/initialpose  (for respawn in competition)
         init_pose = self.blackboard.get("/carla/ego_vehicle/initialpose")
         if init_pose is not None:
-            if self.last_init_pose_carla is not None and init_pose != self.last_init_pose_carla:
+            if init_pose != self.last_init_pose_carla:
                 self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
                 self.target_speed_pub.publish(0.0)
                 rospy.loginfo(f"New spawn at {init_pose.pose.pose}")
