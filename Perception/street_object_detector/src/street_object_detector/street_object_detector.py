@@ -234,7 +234,6 @@ class StreetObjectDetector:
         :param replacement_rules: a dictionary of symbols to be replaced by another symbol, e.g. { "$": "9" }
         :return: the extracted text
         """
-        custom_config = r'--oem 3 --psm 6 outputbase digits'
         gray = cv2.cvtColor(street_sign_rgb, cv2.COLOR_BGR2GRAY)
 
         # if resize_to != 0:
@@ -249,12 +248,12 @@ class StreetObjectDetector:
         #     gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11,
         #                                  1)  # apply thresholding
 
-        text = pytesseract.image_to_string(gray, config=custom_config)
+        text = pytesseract.image_to_string(gray, config=tesseract_config)
         rospy.loginfo(text)
         #text = text.strip()  # cut off whitespace
 
-        # for replacement in replacement_rules:  # replace unwanted characters
-        #     text = text.replace(replacement[0], replacement[1])
+        for replacement in replacement_rules:  # replace unwanted characters
+            text = text.replace(replacement[0], replacement[1])
 
         return text
 
