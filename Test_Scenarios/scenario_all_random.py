@@ -151,6 +151,7 @@ def main():
 
         if args.number_of_vehicles < number_of_spawn_points:
             random.shuffle(spawn_points)
+            # print("no shuffle ")
         elif args.number_of_vehicles > number_of_spawn_points:
             msg = 'requested %d vehicles, but could only find %d spawn points'
             logging.warning(msg, args.number_of_vehicles, number_of_spawn_points)
@@ -165,13 +166,19 @@ def main():
         # --------------
         # Write Spawn_points in csv
         # --------------
-        #print('spawn_points %d .' % (len(spawn_points)))
-        #with open('scenario_1.csv', 'w', newline='') as scenario_1_file:
-        #    writer = csv.writer(scenario_1_file)
-        #    writer.writerow(["x", "y", "z", "pitch", "yaw", "roll"])
-        #    for transform in spawn_points:
-        #        writer.writerow([transform.location.x, transform.location.y, transform.location.z, transform.rotation.pitch, transform.rotation.yaw, transform.rotation.roll])
-        #        #writer.writerow([transform[0], transform[1], transform[2], transform[3]])     
+        # print('spawn_points %d .' % (len(spawn_points)))
+        # i = 0
+        # while i < 5:           
+        #     with open('town05_spawn_points_0%s.csv' %(i+1), 'w', newline='') as scenario_1_file:
+        #         writer = csv.writer(scenario_1_file)
+        #         writer.writerow(["x", "y", "z", "pitch", "yaw", "roll"])
+        #         for n,transform in enumerate(spawn_points):
+        #             if n > 1:
+        #                 break;
+        #             random.shuffle(spawn_points)
+        #             writer.writerow([transform.location.x, transform.location.y, transform.location.z, transform.rotation.pitch, transform.rotation.yaw, transform.rotation.roll])
+        #             #writer.writerow([transform[0], transform[1], transform[2], transform[3]])
+        #     i = i + 1;     
 
         # --------------
         # Spawn vehicles

@@ -4,22 +4,22 @@ import math
 import json
 
 from commonroad.common.file_reader import CommonRoadFileReader
-from helper_functions import calc_egocar_yaw
-from SMP.route_planner.route_planner.route_planner import RoutePlanner
 from commonroad.planning.goal import GoalRegion
 from commonroad.scenario.trajectory import State
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.common.util import AngleInterval
 from commonroad.geometry.shape import Rectangle
 from commonroad.visualization.plot_helper import *
+from SMP.route_planner.route_planner.route_planner import RoutePlanner
+
+from helper_functions import calc_egocar_yaw
+from tf.transformations import euler_from_quaternion
 
 from carla_msgs.msg import CarlaWorldInfo
-from geometry_msgs.msg import Point, PoseWithCovarianceStamped
 from nav_msgs.msg import Path, Odometry
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from custom_carla_msgs.msg import GlobalPathLanelets
-from tf.transformations import euler_from_quaternion
 from custom_carla_msgs.srv import UpdateGlobalPath
 
 PLOT_CROSSING = False
@@ -42,8 +42,14 @@ class GlobalPlanner:
         self.current_orientation = None
         self.intersection_lanelet_ids = None
         self.with_rules = True
-        self.target_pos = (60, -194)
+        self.target_pos = (92, -160)
         self.map_number = None
+
+        self.lanelet_ids_roundabout_inside = []
+        self.lanelet_ids_roundabout_incoming = []
+        self.lanelet_ids_roundabout_outgoing = []
+        self.lanelet_ids_roundabout_inside_inner_circle = []
+        self.lanelet_ids_roundabout_inside_outer_circle = []
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -59,7 +65,8 @@ class GlobalPlanner:
 
     def publish_intersection_lanelet_ids(self):
         """
-        Collect special lanelet ids
+        Collect special lanelet ids that are in an intersection or in a roundabout. Those lanelets are needed
+         to determine the behaviour of the local path planner.
         :return:
         """
         def plot_map(intersections, plot_labels=True):
@@ -104,6 +111,11 @@ class GlobalPlanner:
             ids_to_remove = []
         elif self.map_number == 3:
             ids_to_remove = [115, 107, 342, 340, 176, 169, 258, 259, 260, 320, 386, 177]
+            self.lanelet_ids_roundabout_inside = [190, 191, 196, 306, 308, 305, 307, 198, 201, 202, 199, 195, 188, 193]
+            self.lanelet_ids_roundabout_incoming = [184, 181, 203, 280, 284, 194, 189, 347, 186, 183, 281, 277]
+            self.lanelet_ids_roundabout_outgoing = [200, 204, 345, 206, 187, 192, 197]
+            self.lanelet_ids_roundabout_inside_inner_circle = [190, 191, 306, 305, 198, 199, 188]
+            self.lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]
         elif self.map_number == 5:
             ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]
         else:
@@ -213,6 +225,12 @@ class GlobalPlanner:
         lanelet_msg.lanelet_ids = shortest_route.list_ids_lanelets
         lanelet_msg.adjacent_lanelet_ids = json.dumps(shortest_route.retrieve_route_sections())
         lanelet_msg.lanelet_ids_in_intersection = self.intersection_lanelet_ids
+
+        lanelet_msg.lanelet_ids_roundabout_inside = self.lanelet_ids_roundabout_inside
+        lanelet_msg.lanelet_ids_roundabout_incoming = self.lanelet_ids_roundabout_incoming
+        lanelet_msg.lanelet_ids_roundabout_outgoing = self.lanelet_ids_roundabout_outgoing
+        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = self.lanelet_ids_roundabout_inside_outer_circle
+
         self.lanelet_pub.publish(lanelet_msg)
 
         # creat the global path message
@@ -232,7 +250,11 @@ class GlobalPlanner:
         return True
 
     def sanitize_route(self, route):
-        # delete unnecessary points at begin and end of route
+        """
+        Delete unnecessary points at begin and end of route
+        :param route: route as list of points
+        :return:
+        """
         max_index = -1
         min_index = -1
         min_distance_start = None

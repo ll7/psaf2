@@ -24,7 +24,7 @@ For example:
 ## How do change the ego car configuration?
 just edit
 ```
-config/objects.json
+config/sensors.json
 ```
 
 

@@ -1,0 +1,18 @@
+competition:
+  start:
+    position:
+      x: -148.99
+      y: 36.04
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.85
+      w: 0.53
+  goal:
+    position:
+      x: 244.32
+      y: -56.67
+      z: 0.0
+  traffic_rules: true
+  ready_for_ego: false

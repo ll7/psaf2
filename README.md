@@ -29,7 +29,7 @@ This node computes a _global path_ from the position of the ego vehicle to a giv
 ### [local_planner](Planning/local_planner)
 This node provides a service, that can be called on to compute a _local path_. You can pass parameters to switch lanes or get into the right lane for turning on an intersection.
 
-### [behaviour_agent](Planning/behaviour_agent)
+### [behaviour_agent](Planning/behavior_agent)
 This node contains the behaviour agent, that decides on the ego_vehicles actions (i.e. switching lane, overtaking) based on data from the _Perception_-nodes. It is based on a [behaviour tree](https://en.wikipedia.org/wiki/Behavior_tree_(artificial_intelligence,_robotics_and_control)). It can influence the vehicles actions, by calling the local_planner to compute new paths, or passing a different target-speed to the steering_controllers node. The following graphic represents the top level of the driving-behaviour-tree. You can find a detailed description of the behaviour-tree we use inside the [behaviour_agent-Package](Planning/behaviour_agent).
 
 ![BT-big-picture](documentation/behaviour_agent/bt_big_picture.svg)
@@ -72,8 +72,20 @@ cd psaf2
 If you need more information about the installation process or if you don't trust our installation script check out our wiki entry:
 https://github.com/ll7/psaf2/wiki/Installation
 
+# Usage/Tips
+Author: Valentin Höpfner
+
 ## How to launch the ego vehicle?
 ```shell
 roslaunch ego_vehicle ego_vehicle.launch
 ```
-Packages werden mit "_" benannt.
+## How to edit settings?
+Just edit:
+```shell
+ego_vehicle ego_vehicle.launch
+```
+This could - for example - be the map or the ego_vehicle used. Description of the sensor array is also contained in the ego_vehicle package.
+If you are looking for a place to put your launchfiles this is also the place.
+## Setting target or spawn point
+This is supposed to be done with the [PSAF20 - Competition Manager](https://github.com/ll7/psaf20/tree/main/psaf20_competition_manager). You can also respawn the ego vehicle from RVIZ. Note that respawning will trigger replanning the global plan as well as cancelling all the actions the ego_vehicle is currently taking.
+

@@ -30,7 +30,6 @@ class Approach(py_trees.behaviour.Behaviour):
         self.virtual_stopline_distance = np.inf
         self.target_speed_pub.publish(30.0)
         self.last_virtual_distance = np.inf
-        rospy.loginfo("start approaching behavior")
 
     def update(self):
         # Update Light Info
@@ -45,28 +44,28 @@ class Approach(py_trees.behaviour.Behaviour):
         if _dis is not None:
             self.stopline_distance = _dis.data
             rospy.loginfo(f"Stopline distance: {self.stopline_distance}")
-        
+
         # calculate virtual stopline
         if self.stopline_distance != np.inf:
             self.virtual_stopline_distance = self.stopline_distance
         else:
             self.virtual_stopline_distance = self.traffic_light_distance
-        
+
         # calculate speed needed for stopping
         v_stop = max(5., (self.virtual_stopline_distance/30)**1.5 * 50)
         if v_stop > 30:
-            v_stop = 30 
+            v_stop = 30
         if self.virtual_stopline_distance < 3.5:
             v_stop = 0
         # stop when there is no or red/yellow traffic light
         if self.traffic_light_status == '' or self.traffic_light_status == 'red' or self.traffic_light_status == 'yellow':
             rospy.loginfo(f"slowing down: {v_stop}")
             self.target_speed_pub.publish(v_stop)
-        
+
         # approach slowly when traffic light is green
         if self.traffic_light_status == 'green':
             self.target_speed_pub.publish(30)
-        
+
         # get speed
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
         speed = np.sqrt(odo.twist.twist.linear.x ** 2 + odo.twist.twist.linear.y ** 2 + odo.twist.twist.linear.z ** 2)*3.6
@@ -117,7 +116,7 @@ class Wait(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.RUNNING
         else:
             return py_trees.common.Status.SUCCESS
-        
+
     def terminate(self, new_status):
         self.logger.debug("  %s [Foo::terminate().terminate()][%s->%s]" % (self.name, self.status, new_status))
 

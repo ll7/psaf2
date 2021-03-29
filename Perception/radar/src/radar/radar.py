@@ -10,7 +10,7 @@ import tf2_ros
 import tf2_geometry_msgs
 from geometry_msgs.msg import PoseStamped, Pose
 
-class Radar(object): 
+class Radar(object):
     """ Determines distance to car in front
         to improve performance in corners the projected Path of the ego_vehicle is also considered
     """
@@ -21,7 +21,7 @@ class Radar(object):
         self._current_pose = Pose()
         self.current_time = rospy.get_time()
         self.role_name = role_name
-        self.path = Path()        
+        self.path = Path()
 
         self._radar_subscriber = rospy.Subscriber(
             f"/carla/{role_name}/radar/front/radar_points", PointCloud2, self.radar_updated)
@@ -61,7 +61,7 @@ class Radar(object):
         if no points are passed for safety_time it publishes safety_distance
         Args:
             points ([type]): array of poses in map frame
-        """                  
+        """
         dist_x = [self._current_pose.position.x - p.pose.position.x for p in points]
         dist_y = [self._current_pose.position.y - p.pose.position.y for p in points]
         dist = np.hypot(dist_x,dist_y) 
@@ -85,14 +85,14 @@ class Radar(object):
         """
         px =[posen.pose.position.x for posen in self.path.poses]
         py =[posen.pose.position.y for posen in self.path.poses]
-        points = []   
+        points = []
         for p in poses_transformed:
             dx =[p.pose.position.x - icx for icx in px]
             dy =[p.pose.position.y - icy for icy in py]
             d = np.hypot(dx,dy)
-            if d.any():   
-                dist = min(d)            
-                if dist < max_dist_to_path:                    
+            if d.any():
+                dist = min(d)
+                if dist < max_dist_to_path:
                     points.append(p)
         return points   
 
@@ -115,10 +115,11 @@ class Radar(object):
 
         try:
             trans = self.tf_buffer.lookup_transform('map', 'ego_vehicle/radar/front', rospy.Time())
+            return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             print("Error in transformation")                       
 
-        return [tf2_geometry_msgs.do_transform_pose(p, trans) for p in poses]
+        
 
     def radar_updated(self, msg):
         """
