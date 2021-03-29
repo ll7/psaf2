@@ -168,6 +168,7 @@ class StreetObjectDetector:
                         recognized_speed_limit = recognized_number
 
                 if recognized_speed_limit != None:
+                    rospy.loginfo(recognized_speed_limit)
                     self.target_speed_publisher.publish(float(recognized_speed_limit))
                 try:
                     im = self.bridge.cv2_to_imgmsg(rgb_img)
@@ -249,7 +250,6 @@ class StreetObjectDetector:
         #                                  1)  # apply thresholding
 
         text = pytesseract.image_to_string(gray, config=tesseract_config)
-        rospy.loginfo(text)
         #text = text.strip()  # cut off whitespace
 
         for replacement in replacement_rules:  # replace unwanted characters

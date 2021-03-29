@@ -266,26 +266,27 @@ class LocalPlanner:
 
         # extend with global path as fallback, use global path to approach target position
         if self.global_path is not None:
-            if self.global_path.size != 0:
-                if path:
-                    last_pos_on_local_path = path[-1]
-                else:
-                    last_pos_on_local_path = np.array(self.current_pos)
-                idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
-                if lane_id in self.adjacent_lanelets[-1]:  # we are on last road section
-                    path = self.global_path[idx_closest_point_on_global_path:]
-                    rospy.loginfo("On last lanelet: Use global path")
-                elif next_lanelet_id in self.adjacent_lanelets[-1]:  # next id is in last road section
-                    path = path[:-len(next_lanelet.center_vertices)]
-                    last_pos_on_local_path = path[-1]
+            if len(self.global_path) > 0:
+                if self.global_path.size != 0:
+                    if path:
+                        last_pos_on_local_path = path[-1]
+                    else:
+                        last_pos_on_local_path = np.array(self.current_pos)
                     idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
-                    path.extend(self.global_path[idx_closest_point_on_global_path:])
-                    rospy.loginfo("Next is last. Extend with global path")
-                else:
-                    try:
+                    if lane_id in self.adjacent_lanelets[-1]:  # we are on last road section
+                        path = self.global_path[idx_closest_point_on_global_path:]
+                        rospy.loginfo("On last lanelet: Use global path")
+                    elif next_lanelet_id in self.adjacent_lanelets[-1]:  # next id is in last road section
+                        path = path[:-len(next_lanelet.center_vertices)]
+                        last_pos_on_local_path = path[-1]
+                        idx_closest_point_on_global_path = np.argmin(np.linalg.norm(self.global_path - last_pos_on_local_path, axis=1))
                         path.extend(self.global_path[idx_closest_point_on_global_path:])
-                    except IndexError:
-                        pass
+                        rospy.loginfo("Next is last. Extend with global path")
+                    else:
+                        try:
+                            path.extend(self.global_path[idx_closest_point_on_global_path:])
+                        except IndexError:
+                            pass
 
         # create ros path message
         path = np.array(path)
