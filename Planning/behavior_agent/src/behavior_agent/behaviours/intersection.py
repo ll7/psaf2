@@ -141,7 +141,7 @@ class Enter(py_trees.behaviour.Behaviour):
         if light_status == "":
             self.target_speed_pub.publish(10.0)
         else:
-            self.target_speed_pub(50.0)
+            self.target_speed_pub.publish(50.0)
 
     def update(self):
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
@@ -162,14 +162,13 @@ class Leave(py_trees.behaviour.Behaviour):
         super(Leave, self).__init__(name)
 
     def setup(self, timeout):
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         self.blackboard = py_trees.blackboard.Blackboard()
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
         return True
 
     def initialise(self):
-        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
-        self.target_speed_pub.publish(50.0)
         return True
 
     def update(self):
@@ -179,6 +178,7 @@ class Leave(py_trees.behaviour.Behaviour):
         if next_lanelet_msg.distance < 15 and not next_lanelet_msg.isInIntersection:
             rospy.loginfo("Leave leave behaviour!")
             self.update_local_path(leave_intersection=True)
+            self.target_speed_pub.publish(50.0)
             return py_trees.common.Status.FAILURE
         else:
             rospy.loginfo("Stay in leave behaviour!")
