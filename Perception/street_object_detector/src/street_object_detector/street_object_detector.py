@@ -146,7 +146,6 @@ class StreetObjectDetector:
             if distances:
                 # get closest sign and create mask for that sign
                 closest_cnt = contours[np.argmin(distances)]
-                print(closest_cnt)
                 rgb_mask = np.zeros(self.sem_seg_height_width, np.uint8)
                 cv2.drawContours(rgb_mask, [closest_cnt], -1, 1, -1, cv2.LINE_AA)
 
