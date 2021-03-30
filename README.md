@@ -1,4 +1,4 @@
-# Praktikum zur Simulation von autonomen Fahrzeugen - Gruppe 2
+# Praktikum zur Simulation von autonomen Fahrzeugen - Gruppe 2 🤯️
 Author: Valentin Höpfner
 
 The goal of this project was to develop an autonomous vehicle for the [CARLA-simulator](https://github.com/carla-simulator/carla). The task is to move collision-free and autonomously on various maps, on which other vehicles are also traveling, from an arbitrary starting point to an arbitrary destination. Two different modes are relevant for the evaluation: one mode in which traffic rules are observed, and one mode in which they are not. 
@@ -10,10 +10,10 @@ We developed various ROS-nodes for the core-functionalities of our ego-vehicle. 
 
 Another (somewhat less readable) way to visualize the nodes and their communication - with each other and with the ros-bridge - is a rosgraph:
 
-![Rosgraph]()
+![Rosgraph](documentation/rosgraph.svg)
 
 
-## [Acting](Acting)
+## [Acting 🔥️🚘️🔥️](Acting)
 
 ### [ego_vehicle](Acting/ego_vehicle)
 This node is used to launch the ros bridge and all the other packages. It also contains the ```config.json``` file, that describes the sensor-array.
