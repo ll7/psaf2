@@ -147,8 +147,8 @@ class GlobalPlanner:
         goal_states.append(State(position=Rectangle(2, 2, center=np.array(pos)), time_step=Interval(1, 200),
                                  velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2)))
         # use target pos only
-        if self.with_rules:
-            return goal_states
+        #if self.with_rules:
+        return goal_states
 
         # create a cross over the target position. Check if a point on the cross hits another lanelet.
         # If so add this lanelet.

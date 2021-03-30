@@ -238,7 +238,7 @@ class LocalPlanner:
                             break
                     try:
                         next_lanelet = self.scenario.lanelet_network.find_lanelet_by_id(
-                            self.adjacent_lanelets[idx + 1][0])  # get successor lanelet
+                            self.adjacent_lanelets[idx + 1][-1])  # get successor lanelet
                     except IndexError:
                         rospy.loginfo("Local Planner Intersection Approaching: No successor found")
                         break
