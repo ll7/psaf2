@@ -81,12 +81,12 @@ def grow_a_tree(role_name):
                                                     Running("Can't Overtake")
                                                 ])),
                                                 # dont turn back to right lane
-                                                #Sequence("Back to Right Lane", children=[
-                                                #    behaviours.road_features.RightLaneAvailable("Right Lane Available"),
-                                                #    behaviours.traffic_objects.NotSlowedByCarInFrontRight("Not Slowed By Car in Front Right?"),
-                                                #    behaviours.traffic_objects.WaitRightLaneFree("Wait for Right Lane Free"),
-                                                #    behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
-                                                #])
+                                                Sequence("Back to Right Lane", children=[
+                                                   behaviours.road_features.RightLaneAvailable("Right Lane Available"),
+                                                   behaviours.traffic_objects.NotSlowedByCarInFrontRight("Not Slowed By Car in Front Right?"),
+                                                   behaviours.traffic_objects.WaitRightLaneFree("Wait for Right Lane Free"),
+                                                   behaviours.maneuvers.SwitchLaneRight("Switch Lane Right")
+                                                ])
                                             ]),
 
                                             behaviours.maneuvers.Cruise("Cruise")   
@@ -209,7 +209,13 @@ def main():
         rospy.loginfo("Tree Setup failed")
         sys.exit(1)
     rospy.loginfo("tree setup worked")
-    behaviour_tree.tick_tock(500)
+    r = rospy.Rate(5)
+    while not rospy.is_shutdown():
+        behaviour_tree.tick()
+        try:
+            r.sleep()
+        except rospy.ROSInterruptException:
+            pass
 
 if __name__ == "__main__":
     main()

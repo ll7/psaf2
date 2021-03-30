@@ -13,11 +13,11 @@
   <arg name="spawn_ego_vehicle" default="True" />
 
   <!-- Map to load on startup (either a predefined CARLA town (e.g. 'Town01'), or a OpenDRIVE map file) -->
-  <arg name="town" default='Town03'/>
+  <arg name="town" default='Town05'/>
 
   <!-- Synchronous mode-->
-  <arg name='synchronous_mode' default=''/>
-  <arg name='synchronous_mode_wait_for_vehicle_control_command' default=''/>
+  <arg name='synchronous_mode' default='true'/>
+  <arg name='synchronous_mode_wait_for_vehicle_control_command' default='true'/>
   <arg name='fixed_delta_seconds' default=''/>
 
 

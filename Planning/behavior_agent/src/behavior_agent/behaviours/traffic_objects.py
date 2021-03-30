@@ -68,7 +68,7 @@ class WaitRightLaneFree(py_trees.behaviour.Behaviour):
         self.car_right = self.blackboard.get("/psaf/ego_vehicle/obstacle_on_right_lane")
         if self.car_right is None:
             return py_trees.common.Status.SUCCESS
-        elif self.car_right.data is None or self.car_right.data > 20:
+        elif self.car_right.data is None or self.car_right.data > 40:
             return py_trees.common.Status.SUCCESS
         elif (self.timer + 2) < rospy.get_time():
             return py_trees.common.Status.RUNNING 
@@ -83,7 +83,7 @@ class NotSlowedByCarInFrontRight(py_trees.behaviour.Behaviour):
         super(NotSlowedByCarInFrontRight, self).__init__(name)
 
     def setup(self, timeout):
-        self.Successs = False
+        self.Successs = True
         return True
 
 
