@@ -109,6 +109,7 @@ class Leave(py_trees.behaviour.Behaviour):
         super(Leave, self).__init__(name)
 
     def setup(self, timeout):
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
         self.Successs = False
         rospy.wait_for_service('update_local_path')
         self.update_local_path = rospy.ServiceProxy("update_local_path", UpdateLocalPath)
@@ -117,6 +118,7 @@ class Leave(py_trees.behaviour.Behaviour):
     def initialise(self):
         self.blackboard = py_trees.blackboard.Blackboard()
         self.update_local_path(leave_intersection=True)
+        self.target_speed_pub.publish(50.0)
 
 
     def update(self):

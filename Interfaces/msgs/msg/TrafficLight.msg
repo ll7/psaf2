@@ -1,0 +1,2 @@
+string color
+float64 distance

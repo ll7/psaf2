@@ -180,6 +180,8 @@ class Lidar(object):
                             self.obstacle_on_left_lane_pub.publish(dist) 
                         else:
                             self.obstacle_on_left_lane_pub.publish(np.inf)
+                    else:
+                        self.obstacle_on_right_lane_pub.publish(np.inf) 
                 
         if self.right_lanelet is not None:            
             filtered_poses_right = self.filter_lidar_poses(self.right_lanelet, transformed_lidar_poses)
@@ -207,7 +209,9 @@ class Lidar(object):
                         if dist > 0 and dist < self.max_dist_lidar:        
                             self.obstacle_on_right_lane_pub.publish(dist) 
                         else:
-                            self.obstacle_on_right_lane_pub.publish(np.inf)          
+                            self.obstacle_on_right_lane_pub.publish(np.inf)    
+                    else:
+                        self.obstacle_on_right_lane_pub.publish(np.inf)      
        
     
     def get_right_and_left_lanelet(self):

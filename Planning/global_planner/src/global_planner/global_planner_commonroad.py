@@ -36,12 +36,6 @@ class GlobalPlanner:
         self.lanelet_pub = rospy.Publisher(f"/psaf/{self.role_name}/global_path_lanelets", GlobalPathLanelets,
                                            queue_size=1, latch=True)
 
-        self.lanelet_ids_roundabout_inside = None
-        self.lanelet_ids_roundabout_incoming = None
-        self.lanelet_ids_roundabout_outgoing = None
-        self.lanelet_ids_roundabout_inside_inner_circle = None
-        self.lanelet_ids_roundabout_inside_outer_circle = None
-
         self.scenario = None
         self.planning_problem_Set = None
         self.current_pos = None
@@ -49,12 +43,13 @@ class GlobalPlanner:
         self.intersection_lanelet_ids = None
         self.with_rules = True
         self.target_pos = (92, -160)
+        self.map_number = None
 
         self.lanelet_ids_roundabout_inside = []
         self.lanelet_ids_roundabout_incoming = []
         self.lanelet_ids_roundabout_outgoing = []
         self.lanelet_ids_roundabout_inside_inner_circle = []
-        self.lanelet_ids_roundabout_inside_outer_circle = []     
+        self.lanelet_ids_roundabout_inside_outer_circle = []
 
     def map_received(self, msg):
         self.scenario, self.planning_problem_set = CommonRoadFileReader(msg.data).open()
@@ -70,8 +65,8 @@ class GlobalPlanner:
 
     def publish_intersection_lanelet_ids(self):
         """
-        Collect special lanelet ids that are in an intersection. Those lanelets are needed to determine the behaviour
-        of the local path planner.
+        Collect special lanelet ids that are in an intersection or in a roundabout. Those lanelets are needed
+         to determine the behaviour of the local path planner.
         :return:
         """
         def plot_map(intersections, plot_labels=True):
@@ -109,7 +104,7 @@ class GlobalPlanner:
             if len(lane.predecessor) == 1 and len(lane.successor) == 1 and lane.distance[-1] < 100:
                 intersection_ids.append(lanelet_id)
 
-        # map nummer 3 ist die mit kreisverkehr
+        # remove lanelets that were wrongly detected.
         if self.map_number == 1:
             ids_to_remove = []
         elif self.map_number == 2:
@@ -120,20 +115,17 @@ class GlobalPlanner:
             self.lanelet_ids_roundabout_incoming = [184, 181, 203, 280, 284, 194, 189, 347, 186, 183, 281, 277]
             self.lanelet_ids_roundabout_outgoing = [200, 204, 345, 206, 187, 192, 197]
             self.lanelet_ids_roundabout_inside_inner_circle = [190, 191, 306, 305, 198, 199, 188]
-            self.lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]                        
+            self.lanelet_ids_roundabout_inside_outer_circle = [202, 201, 195, 307, 308, 196, 193]
         elif self.map_number == 5:
-            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]                            
+            ids_to_remove = [256, 252, 255, 258, 354, 259, 383, 377, 374, 384, 381, 376, 254]
         else:
             ids_to_remove = []
 
-        
-
         out_list = []
         for id in intersection_ids:
-            if id not in ids_to_remove:        
+            if id not in ids_to_remove:
                 out_list.append(id)
-        # and id not in lanelet_ids_roundabout_incoming
-        # and id not in self.lanelet_ids_roundabout_inside and id not in self.lanelet_ids_roundabout_outgoing
+
         if PLOT_CROSSING:
             plot_map(out_list, False)
 
@@ -155,8 +147,8 @@ class GlobalPlanner:
         goal_states.append(State(position=Rectangle(2, 2, center=np.array(pos)), time_step=Interval(1, 200),
                                  velocity=Interval(0, 0), orientation=AngleInterval(-0.2, 0.2)))
         # use target pos only
-        if self.with_rules:
-            return goal_states
+        #if self.with_rules:
+        return goal_states
 
         # create a cross over the target position. Check if a point on the cross hits another lanelet.
         # If so add this lanelet.
@@ -237,7 +229,7 @@ class GlobalPlanner:
         lanelet_msg.lanelet_ids_roundabout_inside = self.lanelet_ids_roundabout_inside
         lanelet_msg.lanelet_ids_roundabout_incoming = self.lanelet_ids_roundabout_incoming
         lanelet_msg.lanelet_ids_roundabout_outgoing = self.lanelet_ids_roundabout_outgoing
-        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = self.lanelet_ids_roundabout_inside_outer_circle       
+        lanelet_msg.lanelet_ids_roundabout_inside_outer_circle = self.lanelet_ids_roundabout_inside_outer_circle
 
         self.lanelet_pub.publish(lanelet_msg)
 

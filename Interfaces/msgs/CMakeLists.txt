@@ -16,6 +16,7 @@ add_message_files(
   GlobalPathLanelets.msg
   LaneStatus.msg
   NextLanelet.msg
+  TrafficLight.msg
 )
 
 add_service_files(
