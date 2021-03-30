@@ -148,7 +148,7 @@ class RespawnOrFinish(py_trees.behaviour.Behaviour):
         target_pos = np.array([rospy.get_param('/competition/goal/position/x', 10),
                                rospy.get_param('/competition/goal/position/y', 50)])
         dist = np.linalg.norm(current_pos - target_pos)
-        if dist < 3:
+        if dist < 0.5:
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE
