@@ -11,6 +11,9 @@ from geometry_msgs.msg import Point
 from custom_carla_msgs.msg import GlobalPathLanelets, LaneStatus, NextLanelet
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
+from custom_carla_msgs.msg import PerceptionInfo
+
+
 
 def create_node(role_name):
     topics =[
@@ -28,7 +31,11 @@ def create_node(role_name):
             {'name':f"/psaf/{role_name}/obstacle_on_right_lane", 'msg':Float64, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/initialpose", 'msg': PoseWithCovarianceStamped,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
             {'name':f"/carla/{role_name}/initialpose", 'msg': PoseWithCovarianceStamped, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
-            {'name':f"/psaf/{role_name}/first_lanelet_roundabout", 'msg':Int32, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER}
+            {'name':f"/psaf/{role_name}/first_lanelet_roundabout", 'msg':Int32, 'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/psaf/{role_name}/perception_info", 'msg': PerceptionInfo,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/psaf/{role_name}/traffic_light", 'msg': String,'clearing-policy': py_trees.common.ClearingPolicy.NEVER},
+            {'name':f"/psaf/ego_vehicle/speed_limit", 'msg': String,'clearing-policy': py_trees.common.ClearingPolicy.NEVER}
+
             
          ]
     topics2blackboard = py_trees.composites.Parallel("Topics to Blackboard")
