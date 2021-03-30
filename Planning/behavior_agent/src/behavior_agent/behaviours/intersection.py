@@ -133,7 +133,15 @@ class Enter(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
-        self.target_speed_pub.publish(50.0)
+        light_status = self.blackboard.get("/psaf/ego_vehicle/traffic_light")
+        if light_status is None:
+            self.target_speed_pub.publish(50.0)
+        else:
+            light_status = light_status.color
+        if light_status == "":
+            self.target_speed_pub.publish(10.0)
+        else:
+            self.target_speed_pub(50.0)
 
     def update(self):
         odo = self.blackboard.get("/carla/ego_vehicle/odometry")
@@ -160,6 +168,8 @@ class Leave(py_trees.behaviour.Behaviour):
         return True
 
     def initialise(self):
+        self.target_speed_pub = rospy.Publisher("/psaf/ego_vehicle/target_speed", Float64, queue_size=1)
+        self.target_speed_pub.publish(50.0)
         return True
 
     def update(self):

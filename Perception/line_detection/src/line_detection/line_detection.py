@@ -266,7 +266,10 @@ class LineDetector(object):
         """
         r = rospy.Rate(10)
         while not rospy.is_shutdown():
+            #try:
             self.run_step()
+            #except:
+            #    pass
             try:
                 r.sleep()
             except rospy.ROSInterruptException:
