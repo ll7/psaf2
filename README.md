@@ -10,7 +10,7 @@ We developed various ROS-nodes for the core-functionalities of our ego-vehicle. 
 
 Another (somewhat less readable) way to visualize the nodes and their communication - with each other and with the ros-bridge - is a rosgraph:
 
-![Rosgraph]()
+![Rosgraph](documentation/rosgraph.svg)
 
 
 ## [Acting](Acting)
